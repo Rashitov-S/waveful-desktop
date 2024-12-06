@@ -221,7 +221,6 @@ class MainWindow(MainFormUI):
         self.media_player.setAudioOutput(self.audio_output)
         # текущее состояние плеера
         self.state = self.media_player.playbackState()
-        # модели для бд
         # каждую секунду меняем положение слайдера
         self.timer = QTimer(self)
         self.timer.start(1000)
@@ -330,8 +329,9 @@ class MainWindow(MainFormUI):
             widget = 2
         current_time = self.status_bar.status_widget.current_label.text()
         end_time = self.status_bar.status_widget.duration_label.text()
-        if self.media_player.playbackState() == QMediaPlayer.PlaybackState.StoppedState and current_time[
-                                                                                            :-1] == end_time[:-1]:
+        if self.media_player.playbackState() == QMediaPlayer.PlaybackState.StoppedState and (current_time[
+                                                                                             :-1] == end_time[
+                                                                                                     :-1] or self.status_bar.status_widget.track_slider.value() / self.status_bar.status_widget.track_slider.maximum() > 0.99):
             if self.repeat:
                 self.current_widget.play_track(
                     self.current_widget.cur_track, False, widget)

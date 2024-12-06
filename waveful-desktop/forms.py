@@ -10,7 +10,6 @@ from PyQt6 import uic
 import io
 import client
 
-
 template_login_form = open("resources/UI/login_formUI.ui", mode="r", encoding="utf-8").read()
 template_main_form = open("resources/UI/main_formUI.ui", mode="r", encoding="utf-8").read()
 template_main_content_widget = open("resources/UI/main_content_widgetUI.ui", mode="r", encoding="utf-8").read()
@@ -323,9 +322,9 @@ class FavouritePlaylistTable(PlaylistTable):
     def __init__(self, user_id, parent=None):
         super().__init__(user_id, parent)
         self.set_widget(widget=1)
-        self.update_table()
 
     def update_table(self):
+        print("ЛЮБИМОЕААААААААААААААААААААА")
         client.send_album_images()
         self.tracks_id = []
         self.setRowCount(0)
@@ -505,6 +504,16 @@ class MainFormUI(QMainWindow):
         """)
         self.search_button.setIcon(QIcon("resources\\icons\\search_music.png"))
         self.search_button.setIconSize(QSize(35, 35))
+        # настройка кнопки обновления
+        self.update_button.setStyleSheet("""
+            QPushButton {
+                border-radius: 15px;
+                background-color: qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:0, stop:0 rgba(255, 0, 0, 255), stop:1 rgba(255, 100, 245, 255));
+            }
+            QPushButton:hover {
+                background: qlineargradient(spread:pad, x1:1, y1:0, x2:0, y2:0, stop:0 rgba(255, 0, 0, 255), stop:1 rgba(255, 100, 245, 255));
+            }
+        """)
         # настройка меню QToolButton
         self.menu_button.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonIconOnly)
         self.menu_button.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
@@ -529,7 +538,47 @@ class StatusBarWidget(QWidget):
         font.setPointSize(12)
         self.track_label.setFont(font)
         self.artist_label.setStyleSheet("color: lightgray;")
-        self.track_slider.setStyleSheet("""QSlider::groove:horizontal:pressed {background: #d1de1da; }""")
+        self.volume_slider.setStyleSheet("""QSlider::groove:horizontal {
+    border-radius: 8px;       
+    height: 6px;
+    margin: -1px 0;         
+       
+}
+QSlider::handle:horizontal {
+    background-color: #1de1da;
+    border: 1px solid #313431;
+    height: 12px;     
+    width: 12px;   
+    border-radius: 7px;
+    margin: -4px 0;   
+    padding: -4px 0px;  
+}
+QSlider::add-page:horizontal {
+    background: #9b9b9b;
+}
+QSlider::sub-page:horizontal {
+    background: qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:0, stop:0 rgba(255, 0, 0, 255), stop:1 rgba(255, 100, 245, 255));
+}""")
+        self.track_slider.setStyleSheet("""QSlider::groove:horizontal {
+    border-radius: 1px;       
+    height: 6px;              
+    margin: -1px 0;           
+}
+QSlider::handle:horizontal {
+    background-color: #1de1da;
+    border: 1px solid #313431;
+    height: 12px;     
+    width: 12px;
+    margin: -4px 0;     
+    border-radius: 7px  ;
+    padding: -4px 0px;  
+}
+QSlider::add-page:horizontal {
+    background: #9b9b9b;
+}
+QSlider::sub-page:horizontal {
+    background: qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:0, stop:0 rgba(255, 0, 0, 255), stop:1 rgba(255, 100, 245, 255));
+}""")
         self.hide()
 
 
