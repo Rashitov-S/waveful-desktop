@@ -13,7 +13,6 @@ from PyQt6.QtWidgets import QWidget, QApplication, QMainWindow, QDialog, QFileDi
 from PyQt6.uic.properties import QtCore
 
 from forms import LoginFormUI, MainFormUI, AddTrackDialogUI, MainContentWidgetUI, FavouriteContentWidgetUI
-from methods import get_track_length
 import client
 
 

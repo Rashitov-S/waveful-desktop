@@ -8,7 +8,6 @@ from PyQt6.QtWidgets import QWidget, QApplication, QLineEdit, QPushButton, QMain
     QAbstractItemView, QAbstractScrollArea, QStatusBar, QHBoxLayout, QLabel, QSpacerItem, QMenu, QToolButton
 from PyQt6 import uic
 import io
-from methods import get_track_length
 import client
 
 
