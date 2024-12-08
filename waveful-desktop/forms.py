@@ -507,13 +507,17 @@ class MainFormUI(QMainWindow):
         # настройка кнопки обновления
         self.update_button.setStyleSheet("""
             QPushButton {
+                color: white;
                 border-radius: 15px;
                 background-color: qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:0, stop:0 rgba(255, 0, 0, 255), stop:1 rgba(255, 100, 245, 255));
+                font-size: 14px;
+                font-weight: bold;
             }
             QPushButton:hover {
                 background: qlineargradient(spread:pad, x1:1, y1:0, x2:0, y2:0, stop:0 rgba(255, 0, 0, 255), stop:1 rgba(255, 100, 245, 255));
             }
         """)
+        self.update_button.hide()
         # настройка меню QToolButton
         self.menu_button.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonIconOnly)
         self.menu_button.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
@@ -776,6 +780,7 @@ class LoginFormUI(QWidget):
         # надписи к полям
         self.login_input.setPlaceholderText("Login")
         self.password_input.setPlaceholderText("Password")
+        self.password_input.setEchoMode(QLineEdit.EchoMode.Password)
         # текст-гиперссылка для регистрации
         self.register_hypertext.setStyleSheet("color: RoyalBlue; text-decoration: underline;")
         self.register_hypertext.setCursor(Qt.CursorShape.PointingHandCursor)

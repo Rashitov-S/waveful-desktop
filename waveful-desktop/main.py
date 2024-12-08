@@ -14,6 +14,8 @@ from PyQt6.uic.properties import QtCore
 
 from forms import LoginFormUI, MainFormUI, AddTrackDialogUI, MainContentWidgetUI, FavouriteContentWidgetUI
 import client
+import subprocess
+from __version__ import __version__
 
 
 class UserException(Exception):
@@ -203,6 +205,9 @@ class MainWindow(MainFormUI):
     def __init__(self, session_id):
         self.session_id = session_id
         super(MainWindow, self).__init__(self.session_id)
+        # проверка обновлений
+        if check_version():
+            self.init_update()
         self.current_widget = self.main_content_widget.playlist_table1
         self.main_playlist = self.current_widget.tracks  # плейлист из данных в бд
         self.main_playlist_rows = cycle(range(0, len(self.main_playlist)))
@@ -258,6 +263,20 @@ class MainWindow(MainFormUI):
         # выход
         self.profile_content_widget.exit_button.clicked.connect(self.exit)
         client.send_album_images()
+
+    def init_update(self):
+        self.update_button.show()
+        self.update_button.clicked.connect(self.update_application)
+
+    def update_application(self):
+        try:
+            # Start the updater with the required arguments
+            subprocess.run([sys.executable, 'updater.py', 'temp_main.py', 'main.py'], check=True)
+
+            # Terminate the current process
+            os._exit(0)  # Use os._exit(0) to exit the program immediately
+        except Exception as e:
+            print(f"An error occurred: {e}")
 
     def exit(self):
         self.close()
@@ -389,11 +408,13 @@ class MainWindow(MainFormUI):
             self.status_bar.play_button.change_icon("resources\\icons\\pause_track_icon.png",
                                                     "resources\\icons\\pause_track_icon.png")
             if self.current_widget == self.main_content_widget.playlist_table1:
-                self.main_content_widget.play_playlist_button.change_icon("resources\\icons\\pause_track_icon.png",
-                                                                          "resources\\icons\\pause_track_icon.png")
+                self.main_content_widget.play_playlist_button.change_icon(
+                    "resources\\icons\\pause_track_icon.png",
+                    "resources\\icons\\pause_track_icon.png")
             elif self.current_widget == self.favourite_content_widget.playlist_table2:
-                self.favourite_content_widget.play_playlist_button.change_icon("resources\\icons\\pause_track_icon.png",
-                                                                               "resources\\icons\\pause_track_icon.png")
+                self.favourite_content_widget.play_playlist_button.change_icon(
+                    "resources\\icons\\pause_track_icon.png",
+                    "resources\\icons\\pause_track_icon.png")
 
         elif self.state == QMediaPlayer.PlaybackState.PausedState:
             self.status_bar.play_button.change_icon("resources\\icons\\play_track_icon_normal.png",
@@ -509,8 +530,8 @@ class MainWindow(MainFormUI):
     def closeEvent(self, event):
         self.media_player.stop()
         self.media_player.setSource(QUrl())
-        clear_directory("resources\\upload\\tracks")
-        clear_directory("resources\\temp")
+        clear_directory("temp_resources\\upload\\tracks")
+        clear_directory("temp_resources\\temp")
         event.accept()
 
 
@@ -575,8 +596,8 @@ class LoginWindow(LoginFormUI):
         return user if user is not None else False
 
     def closeEvent(self, event):
-        clear_directory("resources\\upload\\tracks")
-        clear_directory("resources\\temp")
+        clear_directory("temp_resources\\upload\\tracks")
+        clear_directory("temp_resources\\temp")
         event.accept()
 
 
@@ -596,6 +617,11 @@ def clear_directory(directory_path):
                     print(f"Удален файл: {file_path}")
             except Exception as e:
                 print(f"Ошибка при удалении {file_path}: {e}")
+
+
+def check_version():
+    server_version = client.get_version()
+    return __version__ < server_version
 
 
 if __name__ == '__main__':

@@ -9,6 +9,10 @@ requests_cache.install_cache('http_cache', expire_after=18000)
 BASE_URL = 'http://185.251.89.219:5002'
 
 
+def get_version():
+    return 1.02
+
+
 def take_album_from_meta(audio_file, image_temp="resources\\temp\\temp"):
     audio = File(audio_file)
     # проверяем наличие тегов
