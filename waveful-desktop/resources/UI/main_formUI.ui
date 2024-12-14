@@ -133,7 +133,7 @@
           </font>
          </property>
          <property name="styleSheet">
-          <string notr="true">color: white</string>
+          <string notr="true">color: #ffffff</string>
          </property>
          <property name="alignment">
           <set>Qt::AlignCenter</set>

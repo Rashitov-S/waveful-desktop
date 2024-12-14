@@ -193,15 +193,16 @@ class PlaylistTable(QTableWidget):
         client.send_album_images()
         self.tracks_id = []
         self.setRowCount(0)
-        tracks = client.get_tracks()
+        tracks = client.get_tracks_all()
         self.tracks = tracks
+        print(self.tracks)
         num = 1
         for track in tracks:
-            album_all = client.get_album_all(track[3])
             self.tracks_id.append(track[0])
-            duration = client.get_track_length(track[4])
-            self.add_track(str(num), track[1], client.get_artist_name(track[2])[0],
-                           album_all[0], duration, "resources/" + album_all[1])
+            seconds = round(track[5])
+            duration = f"{seconds // 60}:{seconds % 60:02d}"
+            self.add_track(str(num), track[1], track[7],
+                           track[9], duration, "resources/" + track[11])
             self.setRowHeight(num - 1, 40)
             num += 1
         fnt = self.font()
@@ -324,22 +325,18 @@ class FavouritePlaylistTable(PlaylistTable):
         self.set_widget(widget=1)
 
     def update_table(self):
-        print("ЛЮБИМОЕААААААААААААААААААААА")
         client.send_album_images()
         self.tracks_id = []
         self.setRowCount(0)
         favourite_tracks = client.get_favorite_tracks(self.user_id)
-        tracks = []
-        for id in favourite_tracks:
-            tracks.extend(client.get_tracks(id[0]))
-        self.tracks = tracks
+        self.tracks = favourite_tracks
         num = 1
-        for track in tracks:
-            album_all = client.get_album_all(track[3])
+        for track in favourite_tracks:
             self.tracks_id.append(track[0])
-            duration = client.get_track_length(track[4])
-            self.add_track(str(num), track[1], client.get_artist_name(track[2])[0],
-                           album_all[0], duration, "resources/" + album_all[1])
+            seconds = round(track[5])
+            duration = f"{seconds // 60}:{seconds % 60:02d}"
+            self.add_track(str(num), track[1], track[7],
+                           track[9], duration, "resources/" + track[11])
             self.setRowHeight(num - 1, 40)
             num += 1
         fnt = self.font()
@@ -362,12 +359,11 @@ class SearchPlaylistTable(PlaylistTable):
             self.tracks = search_tracks
             num = 1
             for track in search_tracks:
-                album_all = client.get_album_all(track[3])
                 self.tracks_id.append(track[0])
-                duration = client.get_track_length(track[4])
-                self.add_track(str(num), track[1], client.get_artist_name(track[2])[0],
-                               album_all[0], duration,
-                               "resources/" + album_all[1])
+                seconds = round(track[5])
+                duration = f"{seconds // 60}:{seconds % 60:02d}"
+                self.add_track(str(num), track[1], track[7],
+                               track[9], duration, "resources/" + track[11])
                 self.setRowHeight(num - 1, 40)
                 num += 1
             fnt = self.font()

@@ -3,14 +3,17 @@ import time
 from mutagen import File
 from mutagen.id3 import APIC
 import requests
+import zipfile
 import requests_cache
 
 requests_cache.install_cache('http_cache', expire_after=18000)
-BASE_URL = 'http://185.251.89.219:5002'
+BASE_URL = 'http://127.0.0.1:5002'
 
 
 def get_version():
-    return 1.02
+    response = requests.get(f'{BASE_URL}/version')
+    print(response.json())
+    return response.json()
 
 
 def take_album_from_meta(audio_file, image_temp="resources\\temp\\temp"):
@@ -51,6 +54,31 @@ def upload_file(file_path):
             return False
 
 
+def download_update(version):
+    response = requests.get(f'{BASE_URL}/upload/{version}')
+    if response.status_code == 200:
+        filepath = ""
+        with open(filepath, 'wb') as f:
+            f.write(response.content)
+    else:
+        return False
+    try:
+        with zipfile.ZipFile(f"{version}.zip", 'r') as zip_ref:
+            zip_ref.extractall("")
+        os.remove(f"{version}.zip")
+        print(f"Архив {f"{version}.zip"} был удален.")
+        return True
+    except FileNotFoundError:
+        print("ZIP-архив не найден.")
+        return False
+    except zipfile.BadZipFile:
+        print("Ошибка: файл не является корректным ZIP-архивом.")
+        return False
+    except Exception as e:
+        print(f"Произошла ошибка: {e}")
+        return False
+
+
 def download_file(file_path):
     print("скачивание:", file_path)
     response = requests.get(f'{BASE_URL}/upload/{file_path}')
@@ -89,13 +117,13 @@ def add_user(login, password):
 
 
 def get_user(login):
-    response = requests.get(f'{BASE_URL}/users/{login}')
+    response = requests.get(f'{BASE_URL}/users/{login}', params={'nocache': time.time()})
     print(response.json())
     return response.json()
 
 
 def get_user_by_id(user_id):
-    response = requests.get(f'{BASE_URL}/users/{user_id}')
+    response = requests.get(f'{BASE_URL}/users/{user_id}', params={'nocache': time.time()})
     print(response.json())
     return response.json()
 
@@ -160,6 +188,11 @@ def add_track(title, artist_id, album_id, path):
     print(response.json())
 
 
+def get_tracks_all():
+    response = requests.get(f'{BASE_URL}/tracks/all', params={'nocache': time.time()})
+    return response.json()
+
+
 def get_tracks(track_id=None, title=None):
     params = {}
     if track_id:
@@ -172,7 +205,7 @@ def get_tracks(track_id=None, title=None):
 
 
 def get_search_track(title):
-    response = requests.get(f'{BASE_URL}/tracks/{title}')
+    response = requests.get(f'{BASE_URL}/tracks/{title}', params={'nocache': time.time()})
     print(response.json())
     return response.json()
 

@@ -69,7 +69,7 @@ class AddTrackDialog(AddTrackDialogUI):
             print("одижидаемое имя:", album_name)
             album_id = self.get_album_id(album_name)
             artist_id = self.get_artist_id()
-            client.add_track(title, artist_id, album_id, destination_music_path)
+            client.add_track(title, artist_id, album_id, destination_music_path, )
             self.accept()
         except sqlite3.IntegrityError:
             self.error_label.setText("Альбом или исполнитель уже существует")
@@ -270,13 +270,20 @@ class MainWindow(MainFormUI):
 
     def update_application(self):
         try:
-            # Start the updater with the required arguments
-            subprocess.run([sys.executable, 'updater.py', 'temp_main.py', 'main.py'], check=True)
 
-            # Terminate the current process
-            os._exit(0)  # Use os._exit(0) to exit the program immediately
+            # запускаем программу обновления
+            subprocess.run([sys.executable, 'Updater.exe', 'Waveful_update.exe', 'Waveful.exe'], check=True)
+            os._exit(0)
         except Exception as e:
-            print(f"An error occurred: {e}")
+            print(f"Ошибка обновления: {e}")
+
+    def download_update(self):
+        try:
+            downloaded = client.download_file(f"versions/{client.get_version()}.zip")
+            if downloaded:
+                self.update_application()
+        except Exception as e:
+            print(f"Ошибка обновления: {e}")
 
     def exit(self):
         self.close()
@@ -475,17 +482,17 @@ class MainWindow(MainFormUI):
                 self.play(id)
 
     def play(self, id):
+        print(id)
         track_info = client.get_tracks(id)[0]
-        artist_info = client.get_artist_name(track_info[2])
-        album_all = client.get_album_all(track_info[3])
-        album_path = album_all[1]
-        print(album_path)
+        print("проверка", track_info)
 
         client.download_file(track_info[4])
         self.media_player.setSource(QUrl.fromLocalFile(f"resources\\{track_info[4]}"))
         self.current_track_id = id
+        seconds = round(track_info[5])
+        duration = f"{seconds // 60}:{seconds % 60:02d}"
         self.media_player.play()
-        self.status_bar.display(track_info[1], artist_info[0], album_path, client.get_track_length(track_info[4]),
+        self.status_bar.display(track_info[1], track_info[7], track_info[11], duration,
                                 self.current_track_id, self.session_id)
 
     def resume(self):
@@ -621,7 +628,7 @@ def clear_directory(directory_path):
 
 def check_version():
     server_version = client.get_version()
-    return __version__ < server_version
+    return float(__version__) < float(server_version)
 
 
 if __name__ == '__main__':

@@ -343,7 +343,7 @@ border: none</string>
           </sizepolicy>
          </property>
          <property name="styleSheet">
-          <string notr="true">#ffffff</string>
+          <string notr="true">color: #ffffff</string>
          </property>
          <property name="text">
           <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; color:#ffffff;&quot;&gt;TextLabel&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
@@ -425,7 +425,7 @@ QSlider::sub-page:horizontal {
           </sizepolicy>
          </property>
          <property name="styleSheet">
-          <string notr="true">#ffffff</string>
+          <string notr="true">color: #ffffff</string>
          </property>
          <property name="text">
           <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; color:#ffffff;&quot;&gt;TextLabel&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
