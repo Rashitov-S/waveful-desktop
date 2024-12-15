@@ -55,18 +55,20 @@ def upload_file(file_path):
 
 
 def download_update(version):
-    response = requests.get(f'{BASE_URL}/upload/{version}')
+    response = requests.get(f'{BASE_URL}/upload/versions/{version}', params={'nocache': time.time()})
     if response.status_code == 200:
-        filepath = ""
+        filepath = version
+        print(filepath)
         with open(filepath, 'wb') as f:
             f.write(response.content)
+            print("zip Успешно записан")
     else:
         return False
     try:
-        with zipfile.ZipFile(f"{version}.zip", 'r') as zip_ref:
+        with zipfile.ZipFile(f"{version}", 'r') as zip_ref:
             zip_ref.extractall("")
-        os.remove(f"{version}.zip")
-        print(f"Архив {f"{version}.zip"} был удален.")
+        os.remove(f"{version}")
+        print(f"Архив {f"{version}"} был удален.")
         return True
     except FileNotFoundError:
         print("ZIP-архив не найден.")

@@ -266,24 +266,23 @@ class MainWindow(MainFormUI):
 
     def init_update(self):
         self.update_button.show()
-        self.update_button.clicked.connect(self.update_application)
+        self.update_button.clicked.connect(self.download_update)
 
     def update_application(self):
         try:
-
             # запускаем программу обновления
-            subprocess.run([sys.executable, 'Updater.exe', 'Waveful_update.exe', 'Waveful.exe'], check=True)
-            os._exit(0)
+            args = ["Waveful_update.exe", "Waveful.exe"]
+            subprocess.Popen(["Updater.exe"] + args)
         except Exception as e:
             print(f"Ошибка обновления: {e}")
 
     def download_update(self):
         try:
-            downloaded = client.download_file(f"versions/{client.get_version()}.zip")
+            downloaded = client.download_update(f"{client.get_version()}.zip")
             if downloaded:
                 self.update_application()
         except Exception as e:
-            print(f"Ошибка обновления: {e}")
+            print(f"Ошибка скачивания обновления: {e}")
 
     def exit(self):
         self.close()
@@ -537,8 +536,8 @@ class MainWindow(MainFormUI):
     def closeEvent(self, event):
         self.media_player.stop()
         self.media_player.setSource(QUrl())
-        clear_directory("temp_resources\\upload\\tracks")
-        clear_directory("temp_resources\\temp")
+        clear_directory("resources\\upload\\tracks")
+        clear_directory("resources\\temp")
         event.accept()
 
 
@@ -595,7 +594,7 @@ class LoginWindow(LoginFormUI):
                 self.set_message_label("Пользователь с таким именем уже существует!", "Red")
         except UserException:
             self.highlight_fields()
-            self.set_message_label("Ошибка ввода", "Red")
+            self.set_message_label("Ошибка вводаAA", "Red")
 
     def is_user_exist(self, login):
         # проверка на наличие пользователя в бд
@@ -603,8 +602,8 @@ class LoginWindow(LoginFormUI):
         return user if user is not None else False
 
     def closeEvent(self, event):
-        clear_directory("temp_resources\\upload\\tracks")
-        clear_directory("temp_resources\\temp")
+        clear_directory("resources\\upload\\tracks")
+        clear_directory("resources\\temp")
         event.accept()
 
 
