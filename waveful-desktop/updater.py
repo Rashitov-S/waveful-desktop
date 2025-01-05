@@ -35,24 +35,20 @@ def main(args):
 
         log("Завершение процесса {}".format(process_name))
         while True:
-            # Проверяем, запущен ли процесс
             processes = [p for p in psutil.process_iter(['name']) if p.info['name'] == f"{process_name}.exe"]
             if not processes:
                 break
 
-            # Убиваем все экземпляры процесса
             for process in processes:
                 log("Убийство процесса: {}".format(process.info['name']))
                 process.kill()
 
             time.sleep(0.3)
 
-        # Удаляем старый файл, если он существует
         if os.path.exists(old_file_path):
             log("Удаление старого файла: {}".format(old_file_path))
             os.remove(old_file_path)
 
-        # Перемещаем новый файл на место старого
         log("Перемещение нового файла {} в {}".format(new_file_path, old_file_path))
         shutil.move(new_file_path, old_file_path)
         replace_temp_resources_with_resources(base_directory)
@@ -72,13 +68,11 @@ def replace_temp_resources_with_resources(base_path):
     temp_resources_path = os.path.join(base_path, 'temp_resources')
     resources_path = os.path.join(base_path, 'resources')
 
-    # Проверяем, существует ли папка resources
     if os.path.exists(resources_path):
         # Удаляем папку resources, если она существует
         log("Удаление папки: {}".format(resources_path))
         shutil.rmtree(resources_path)
 
-    # Проверяем, существует ли папка temp_resources
     if os.path.exists(temp_resources_path):
         # Переименовываем temp_resources в resources
         log("Переименование {} в {}".format(temp_resources_path, resources_path))

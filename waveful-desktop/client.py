@@ -5,9 +5,50 @@ from mutagen.id3 import APIC
 import requests
 import zipfile
 import requests_cache
+from colorthief import ColorThief
 
 requests_cache.install_cache('http_cache', expire_after=18000)
 BASE_URL = 'http://127.0.0.1:5002'
+
+
+def find_average_color(image_path: str):
+    color_thief = ColorThief(image_path)
+    result = color_thief.get_color(quality=1)
+    print(result)
+    # pixels = image.load()
+    #
+    # x, y = image.size
+    # r_sum, g_sum, b_sum = 0, 0, 0
+    # for i in range(x):
+    #     for j in range(y):
+    #         r_sum += pixels[i, j][0]
+    #         g_sum += pixels[i, j][1]
+    #         b_sum += pixels[i, j][2]
+    # square = x * y
+    # result = [int(r_sum / square), int(g_sum / square), int(b_sum / square)]
+    # for i in range(3):
+    #     if result[i] > 170 and sum(result) > 510:
+    #         result[i] -= 50
+    return (result[0] * 0.75 if result[0] > 50 else result[0] / 0.5, result[1] * 0.75 if result[1] > 50
+            else result[1] / 0.5, result[2] * 0.75 if result[2] > 50 else result[2] / 0.5)
+
+
+def extract_metadata(file_path):
+    if not os.path.isfile(file_path):
+        print(f"Файл {file_path} не найден.")
+        return
+    audio = File(file_path)
+    if audio is None:
+        print(f"Не удалось загрузить файл {file_path}.")
+        return
+    data = {}
+    for key, value in audio.items():
+        data[key] = value
+    title = data.get("TIT2", None)
+    artist = data.get("TPE1", None)
+    album = data.get("TALB", None)
+    bitrate = audio.info.bitrate if audio.info else None
+    return {"title": title, "artist": artist, "album": album, "bitrate": bitrate}
 
 
 def get_version():
@@ -34,11 +75,11 @@ def take_album_from_meta(audio_file, image_temp="resources\\temp\\temp"):
                 os.makedirs(os.path.dirname(image_temp_full), exist_ok=True)
                 with open(image_temp_full, 'wb') as img:
                     img.write(tag.data)
-                uploaded_file_path = upload_file(image_temp_full)
-                if uploaded_file_path:
-                    send_album_images()
-                return uploaded_file_path
-    print("Обложка альбома не найдена.")
+                # uploaded_file_path = upload_file(image_temp_full)
+                # if uploaded_file_path:
+                #     send_album_images()
+                # return uploaded_file_path
+                return image_temp_full
     return False
 
 
@@ -85,7 +126,7 @@ def download_file(file_path):
     print("скачивание:", file_path)
     response = requests.get(f'{BASE_URL}/upload/{file_path}')
     if response.status_code == 200:
-        filepath = f"resources\\{file_path}"
+        filepath = f"resources/{file_path}"
         with open(filepath, 'wb') as f:
             f.write(response.content)
         print(f'File {filepath} downloaded successfully')
@@ -93,16 +134,26 @@ def download_file(file_path):
         print(f'Failed to download file: {response.text}')
 
 
-def send_album_images():
-    images = get_album_images()
+def send_album_images(images=False):
+    print("ПРОВЕРКА НА ОБЛОЖКИ АЛЬБОМА")
+    if not images:
+        images = get_album_images()
     files = os.listdir("resources\\upload\\album_images")
-    if len(files) - 1 < len(images):
-        for image in images:
-            file_name_with_extension = os.path.basename(image[0])
-            file_exist = os.path.isfile(f"resources\\upload\\album_images\\{file_name_with_extension}")
-            if not file_exist:
-                print(image, "файла не существует")
-                download_file(image[0])
+    print(images)
+    for image in images:
+        file_name_with_extension = os.path.basename(image[0])
+        file_exist = os.path.isfile(f"resources\\upload\\album_images\\{file_name_with_extension}")
+        if not file_exist:
+            print(image, "файла не существует")
+            download_file(image[0])
+            print("СКАЧАЛ ОБЛОЖКУ", image[0])
+
+
+def check_track_file(path):
+    print("проврека 2", os.path.isfile(f"resources/{path}"))
+    if os.path.isfile(f"resources/{path}"):
+        return True
+    return False
 
 
 def get_track_length(file_path):
@@ -141,7 +192,7 @@ def add_album(title, artist_id, path=None):
 
 
 def get_albums(artist_id):
-    response = requests.get(f'{BASE_URL}/albums/artist/{artist_id}')
+    response = requests.get(f'{BASE_URL}/albums/artist/{artist_id}', params={'nocache': time.time()})
     print(response.json())
     return response.json()
 
@@ -158,7 +209,7 @@ def get_album_all(album_id):
 
 
 def get_album_images():
-    response = requests.get(f'{BASE_URL}/albums/all_images')
+    response = requests.get(f'{BASE_URL}/albums/all_images', params={'nocache': time.time()})
     return response.json()
 
 
@@ -190,8 +241,13 @@ def add_track(title, artist_id, album_id, path):
     print(response.json())
 
 
-def get_tracks_all():
-    response = requests.get(f'{BASE_URL}/tracks/all', params={'nocache': time.time()})
+def get_next_tracks(start):
+    response = requests.get(f'{BASE_URL}/tracks/next/{start}')
+    return response.json()
+
+
+def get_tracks_all(start):
+    response = requests.get(f'{BASE_URL}/tracks/all/{start}', params={'nocache': time.time()})
     return response.json()
 
 

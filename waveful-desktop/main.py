@@ -7,7 +7,8 @@ import time
 from itertools import cycle
 from random import randrange
 
-from PyQt6.QtCore import QUrl, pyqtSignal, QTimer
+from PyQt6.QtCore import QUrl, pyqtSignal, QTimer, Qt
+from PyQt6.QtGui import QPixmap
 from PyQt6.QtMultimedia import QMediaPlayer, QAudioOutput
 from PyQt6.QtWidgets import QWidget, QApplication, QMainWindow, QDialog, QFileDialog, QLineEdit, QComboBox
 from PyQt6.uic.properties import QtCore
@@ -26,8 +27,12 @@ class AddTrackDialog(AddTrackDialogUI):
     # окно добавления трека
     def __init__(self):
         super().__init__()
-        self.saved = False
         self.music_file = None
+        self.metadata = {}
+        self.artists = {}
+        self.searched_artists = {}
+        self.albums = {}
+        self.searched_albums = {}
         self.album_image = False
         self.art_combo = True
         self.alb_combo = True
@@ -35,54 +40,135 @@ class AddTrackDialog(AddTrackDialogUI):
         self.no_artist.checkStateChanged.connect(self.change_artist_input)
         self.no_album.checkStateChanged.connect(self.change_albums_input)
         self.select_file_button.clicked.connect(self.select_file)
+        self.search_artist_input.textChanged.connect(self.search_artist)
+        self.search_album_input.textChanged.connect(self.search_albums)
+        self.title_input.textChanged.connect(lambda: self.check_tabs(1))
+        self.artist_input.textChanged.connect(lambda: self.check_tabs(2))
+        self.artist_combobox.activated.connect(lambda: self.check_tabs(2))
+        self.search_artist_input.textChanged.connect(lambda: self.check_tabs(2))
+        self.album_input.textChanged.connect(lambda: self.check_tabs(3))
+        self.album_combobox.activated.connect(lambda: self.check_tabs(3))
+        self.search_album_input.textChanged.connect(lambda: self.check_tabs(3))
+        self.tabs.setTabVisible(1, False)
+        self.tabs.setTabVisible(2, False)
+        self.tabs.setTabVisible(3, False)
+        # self.artist_combobox.currentTextChanged.connect(self.update_album_box)
+        self.tabs.currentChanged.connect(lambda: self.update_album_box(True))
         self.image_button.clicked.connect(self.select_album_image)
         self.accept_button.clicked.connect(self.accept_dialog)
         self.cancel_button.clicked.connect(self.reject)
-        self.image_button.setDisabled(True)
+        self.artist_input.hide()
+        self.album_input.hide()
+        self.image_button.hide()
+
+    def search_artist(self):
+        if not self.search_artist_input.text():
+            for artist in self.artists.keys():
+                self.artist_combobox.addItem(artist)
+        else:
+            self.artist_combobox.clear()
+            self.searched_artists = {v: k for v, k in self.artists.items() if
+                                     self.search_artist_input.text().lower() in v.lower()}
+
+            print(self.artists)
+            for artist in self.searched_artists.keys():
+                self.artist_combobox.addItem(artist)
+
+    def search_albums(self):
+        if not self.search_album_input.text():
+            for album in self.albums.keys():
+                self.album_combobox.addItem(album)
+        else:
+            self.album_combobox.clear()
+            print(self.albums)
+            self.searched_albums = {v: k for v, k in self.albums.items() if
+                                    self.search_album_input.text().lower() in v.lower()}
+
+            for album in self.searched_albums.keys():
+                self.album_combobox.addItem(album)
+
+    def select_album_image(self):
+        try:
+            self.album_image, _ = QFileDialog.getOpenFileName(self, "Выбрать обложку альбома", "",
+                                                              "Images (*.png *.jpg *jpeg)")
+            pixmap = QPixmap(self.album_image)
+            self.image_preview.setPixmap(pixmap.scaled(self.image_preview.size(), Qt.AspectRatioMode.KeepAspectRatio,
+                                                       Qt.TransformationMode.SmoothTransformation))
+        except Exception:
+            pass
+
+    def select_file(self):
+        # выбор трека
+        try:
+            self.select_file_field.clear()
+            self.music_file, _ = QFileDialog.getOpenFileName(self, "Выбрать трек", "",
+                                                             "Audio Files (*.mp3 *.wav *.ogg *aac)")
+            self.select_file_field.setText(self.music_file)
+            self.metadata = client.extract_metadata(self.music_file)
+            self.album_image = client.take_album_from_meta(self.music_file)
+            self.check_tabs(1)
+        except Exception:
+            pass
+
+        # if flag:
+        #     self.album_image = flag
+        #     print("путь до картинки альбома из метаданных", flag)
+        #     self.saved = True
+        #     self.image_button.setDisabled(True)
+
+    def check_tabs(self, index):
+        match index:
+            case 1:
+                if self.title_input.text() and self.music_file:
+                    self.tabs.setTabVisible(1, True)
+                    if self.metadata.get("artist", None):
+                        self.meta.setText(f"Исполнитель из метаданных: {self.metadata.get("artist", None)}")
+                else:
+                    self.tabs.setTabVisible(1, False)
+                    self.tabs.setTabVisible(2, False)
+                    self.tabs.setTabVisible(3, False)
+            case 2:
+                print("тексты", self.artist_combobox.currentText(), self.artist_input.text())
+                print("проверка", self.art_combo, self.artist_combobox.currentText(), self.artist_input.text())
+                if (self.artist_combobox.currentText() and self.art_combo) or (
+                        self.artist_input.text() and not self.art_combo):
+                    self.tabs.setTabVisible(2, True)
+                    # self.update_field()
+                    if self.metadata.get("album", None):
+                        self.meta_album.setText(f"Альбом из метаданных: {self.metadata.get("album", None)}")
+                        self.album_input.setText(f"{self.metadata.get("album", None)}")
+                else:
+                    self.tabs.setTabVisible(2, False)
+                    self.tabs.setTabVisible(3, False)
+            case 3:
+                if (self.album_combobox.currentText() and self.alb_combo) or (
+                        self.album_input.text() and not self.alb_combo):
+                    self.tabs.setTabVisible(3, True)
+                    if self.album_image and not self.alb_combo:
+                        pixmap = QPixmap(self.album_image)
+                        self.image_preview.setPixmap(
+                            pixmap.scaled(self.image_preview.size(), Qt.AspectRatioMode.KeepAspectRatio,
+                                          Qt.TransformationMode.SmoothTransformation))
+                    else:
+                        self.image_preview.clear()
+                else:
+                    self.tabs.setTabVisible(3, False)
 
     def accept_dialog(self):
-        try:
-            title = self.title_input.text()
-            if not title:
-                self.error_label.setText("Укажите название трека")
-                return
-
-            album_name = self.get_album_name()
-            if not album_name:
-                self.error_label.setText("Укажите название альбома")
-                return
-
-            destination_music_path = self.copy_music_file()
-            if not destination_music_path:
-                self.error_label.setText("Укажите музыкальный файл")
-                return
-            if self.saved:
-                destination_album_path = self.album_image
-            elif self.album_image:
-                destination_album_path = self.copy_album_image()
-            else:
-                destination_album_path = None
-
-            self.add_artist()
-            if not self.alb_combo:
-                self.add_album(destination_album_path)
-            print("одижидаемое имя:", album_name)
-            album_id = self.get_album_id(album_name)
-            artist_id = self.get_artist_id()
-            client.add_track(title, artist_id, album_id, destination_music_path, )
-            self.accept()
-        except sqlite3.IntegrityError:
-            self.error_label.setText("Альбом или исполнитель уже существует")
-
-    def get_artist_id(self):
+        title = self.title_input.text()
+        artist = self.artist_combobox.currentText() if self.art_combo else self.artist_input.text()
+        album = self.album_combobox.currentText() if self.alb_combo else self.album_input.text()
+        file = self.copy_music_file()
         if not self.art_combo:
-            return client.get_artists(self.artist_input.text())[0][0]
-        return self.artist_combobox.currentIndex() + 1
-
-    def get_album_name(self):
+            self.add_artist()
+        artist_id = self.artists[artist] if self.art_combo else client.get_artists(name=artist)[0][0]
         if not self.alb_combo:
-            return self.album_input.text()
-        return self.album_combobox.currentText()
+            album_path = self.copy_album_image()
+            self.add_album(album, artist_id, album_path)
+        album_id = self.albums[album] if self.alb_combo else client.get_album_id(album)[0]
+        print(title, artist_id, album_id, file)
+        client.add_track(title, artist_id, album_id, file)
+        self.accept()
 
     def copy_music_file(self):
         if self.music_file:
@@ -98,30 +184,6 @@ class AddTrackDialog(AddTrackDialogUI):
                 return res
         return False
 
-    def get_album_id(self, album_name):
-        print("имя альбома внутри функции:", album_name)
-        print(client.get_album_id(album_name))
-        return client.get_album_id(album_name)[0] if not self.alb_combo else client.get_album_id(
-            self.album_combobox.currentText())[0]
-
-    def select_album_image(self):
-        if not self.saved:
-            self.album_image, _ = QFileDialog.getOpenFileName(self, "Выбрать обложку альбома", "",
-                                                              "Images (*.png *.jpg *jpeg)")
-
-    def select_file(self):
-        # выбор трека
-        self.select_file_field.clear()
-        self.music_file, _ = QFileDialog.getOpenFileName(self, "Выбрать трек", "",
-                                                         "Audio Files (*.mp3 *.wav *.ogg *aac)")
-        self.select_file_field.setText(self.music_file)
-        flag = client.take_album_from_meta(self.music_file)
-        if flag:
-            self.album_image = flag
-            print("путь до картинки альбома из метаданных", flag)
-            self.saved = True
-            self.image_button.setDisabled(True)
-
     def add_artist(self):
         # добавление арстиста в бд
         if not self.art_combo:
@@ -129,76 +191,114 @@ class AddTrackDialog(AddTrackDialogUI):
             if artist:
                 client.add_artist(artist)
 
-    def add_album(self, path):
-        # добавление альбома в бд
-        if not self.alb_combo:
-            title = self.album_input.text()
-        if self.art_combo:
-            artist_id = self.artist_combobox.currentIndex() + 1
-        else:
-            artist_id = client.get_artists(self.artist_input.text())[0][0]
-        if title:
-            client.add_album(title, artist_id, path)
+    def add_album(self, title, artist_id, path):
+        client.add_album(title, artist_id, path)
 
     def update_field(self):
-        self.artist_combobox.currentTextChanged.connect(self.update_album_box)
+        print("вызов серверного обновления боксов")
         self.update_artist_box()
         self.update_album_box()
 
     def update_artist_box(self):
+        print("вызов серверного обновления артистов")
         self.artist_combobox.clear()
-        artists = client.get_artists(False)
-        for artist in artists:
-            self.artist_combobox.addItem(artist[1])
+        self.artists = {v: k for k, v in dict(client.get_artists(False)).items()}
+        for artist in self.artists.keys():
+            self.artist_combobox.addItem(artist)
 
-    def update_album_box(self):
-        self.album_combobox.clear()
-        artist_id = self.artist_combobox.currentIndex() + 1
-        albums = client.get_albums(artist_id)
-        for album in albums:
-            self.album_combobox.addItem(album[1])
+    def update_album_box(self, index=False):
+        if index:
+            index = self.tabs.currentIndex()
+        if index is False or index == 2:
+            if self.artist_combobox.currentText():
+                self.album_combobox.clear()
+                artist_id = self.artists[self.artist_combobox.currentText()]
+                self.albums = {v: k for k, v in dict(client.get_albums(artist_id)).items()}
+                print(self.albums)
+                for key in self.albums.keys():
+                    self.album_combobox.addItem(key)
+            if not self.art_combo:
+                self.album_combobox.clear()
 
     def change_albums_input(self):
+        self.search_album_input.clear()
         # метод для ввода альбома
         if self.no_album.isChecked():
-            self.image_button.setDisabled(False)
-            self.album_input = QLineEdit()
-            self.gridLayout.removeWidget(self.album_combobox)
-            self.album_input.setMinimumSize(0, 30)
-            self.album_combobox.setParent(None)
-            self.gridLayout.addWidget(self.album_input, 2, 1)
+            self.album_combobox.clear()
+            self.album_input.show()
+            self.search_album_input.hide()
+            self.album_combobox.hide()
+            self.image_button.show()
             self.alb_combo = False
 
         else:
-            self.image_button.setDisabled(True)
-            self.album_combobox = QComboBox()
-            self.gridLayout.removeWidget(self.album_input)
-            self.album_combobox.setMinimumSize(0, 30)
-            self.album_input.setParent(None)
-            self.gridLayout.addWidget(self.album_combobox, 2, 1)
+            self.album_combobox.show()
+            self.search_album_input.show()
+            self.album_input.hide()
+            self.image_button.hide()
             self.alb_combo = True
 
             self.update_field()
 
+        if self.album_image and not self.alb_combo:
+            pixmap = QPixmap(self.album_image)
+            self.image_preview.setPixmap(
+                pixmap.scaled(self.image_preview.size(), Qt.AspectRatioMode.KeepAspectRatio,
+                              Qt.TransformationMode.SmoothTransformation))
+        else:
+            self.image_preview.clear()
+
+        self.check_tabs(3)
+
     def change_artist_input(self):
+        self.search_artist_input.clear()
+        # self.artist_input.clear()
         # метод для ввода артиста
         if self.no_artist.isChecked():
-            self.artist_input = QLineEdit()
-            self.gridLayout.removeWidget(self.artist_combobox)
-            self.artist_input.setMinimumSize(0, 30)
-            self.artist_combobox.setParent(None)
-            self.gridLayout.addWidget(self.artist_input, 1, 1)
+            self.artist_combobox.clear()
+            self.artist_input.show()
+            self.search_artist_input.hide()
+            self.artist_combobox.hide()
+
+            self.no_album.hide()
+            self.search_album_input.hide()
+            self.album_combobox.hide()
+            self.album_input.show()
+            self.image_button.show()
+
             self.art_combo = False
+            self.alb_combo = False
 
         else:
-            self.artist_combobox = QComboBox()
-            self.gridLayout.removeWidget(self.artist_input)
-            self.artist_combobox.setMinimumSize(0, 30)
-            self.artist_input.setParent(None)
-            self.gridLayout.addWidget(self.artist_combobox, 1, 1)
-            self.art_combo = True
+            self.artist_combobox.show()
+            self.search_artist_input.show()
+            self.artist_input.hide()
 
-            self.update_field()
+            self.no_album.show()
+            self.search_album_input.show()
+            self.album_combobox.show()
+            self.album_input.hide()
+            self.image_button.hide()
+
+            self.art_combo = True
+            self.alb_combo = True
+
+            if self.artist_combobox.currentText():
+                self.album_combobox.clear()
+                artist_id = self.artists[self.artist_combobox.currentText()]
+                for key in self.albums.keys():
+                    self.album_combobox.addItem(key)
+            if not self.art_combo:
+                self.album_combobox.clear()
+
+        if self.album_image and not self.alb_combo:
+            pixmap = QPixmap(self.album_image)
+            self.image_preview.setPixmap(
+                pixmap.scaled(self.image_preview.size(), Qt.AspectRatioMode.KeepAspectRatio,
+                              Qt.TransformationMode.SmoothTransformation))
+        else:
+            self.image_preview.clear()
+        self.check_tabs(2)
 
 
 class MainWindow(MainFormUI):
@@ -217,6 +317,7 @@ class MainWindow(MainFormUI):
         self.search_track_button.clicked.connect(self.switch_frames)
         self.profile_button.clicked.connect(self.switch_frames)
         self.status_bar.play_button.clicked.connect(self.select_from_button)
+        self.fullscreen_overlay.play_button.clicked.connect(self.select_from_button)
         # аудиоплеер
         self.current_track_id = -1
         self.volume = 0.5
@@ -224,6 +325,8 @@ class MainWindow(MainFormUI):
         self.media_player = QMediaPlayer()
         self.audio_output = QAudioOutput()
         self.media_player.setAudioOutput(self.audio_output)
+        # открытие фулл-экранного режима
+        self.status_bar.maximize_button.clicked.connect(self.check_fullscreen_overlay)
         # текущее состояние плеера
         self.state = self.media_player.playbackState()
         # каждую секунду меняем положение слайдера
@@ -239,7 +342,10 @@ class MainWindow(MainFormUI):
         self.search_content_widget.playlist_table3.play_signal_table.connect(self.select_from_table)
 
         self.media_player.playbackStateChanged.connect(self.check_state)
-        self.status_bar.status_widget.track_slider.actionTriggered.connect(self.slider_moved)
+        self.status_bar.status_widget.track_slider.actionTriggered.connect(
+            lambda _: self.slider_moved(self.status_bar.status_widget.track_slider))
+        self.fullscreen_overlay.track_slider.actionTriggered.connect(
+            lambda _: self.slider_moved(self.fullscreen_overlay.track_slider))
         self.status_bar.status_widget.volume_slider.actionTriggered.connect(self.set_volume)
         self.media_player.playbackStateChanged.connect(self.end_of_media)
         # кнопка для громкости
@@ -248,11 +354,15 @@ class MainWindow(MainFormUI):
         # переключение на следующий / предыдущий трек
         self.status_bar.next_button.clicked.connect(self.next)
         self.status_bar.previous_button.clicked.connect(self.previous)
+        self.fullscreen_overlay.next_button.clicked.connect(self.next)
+        self.fullscreen_overlay.previous_button.clicked.connect(self.previous)
         # кнопки повтора и shuffle
         self.repeat = False
         self.shuffle = False
         self.status_bar.repeat_button.clicked.connect(self.set_repeat)
         self.status_bar.shuffle_button.clicked.connect(self.set_shuffle)
+        self.fullscreen_overlay.repeat_button.clicked.connect(self.set_repeat)
+        self.fullscreen_overlay.shuffle_button.clicked.connect(self.set_shuffle)
         # кнопка лайка и дизлайка
         self.status_bar.add_favourite_button.clicked.connect(self.like)
         # большая кнопка плейлиста
@@ -262,7 +372,12 @@ class MainWindow(MainFormUI):
         self.search_button.clicked.connect(self.search)
         # выход
         self.profile_content_widget.exit_button.clicked.connect(self.exit)
-        client.send_album_images()
+
+    def check_fullscreen_overlay(self):
+        if self.media_player.playbackState() == QMediaPlayer.PlaybackState.PlayingState:
+            self.show_fullscreen_overlay()
+        else:
+            self.show_fullscreen_overlay(playing=False)
 
     def init_update(self):
         self.update_button.show()
@@ -330,20 +445,28 @@ class MainWindow(MainFormUI):
             self.shuffle = True
             self.status_bar.shuffle_button.change_icon("resources\\icons\\shuffle_true_icon_normal.png",
                                                        "resources\\icons\\shuffle_true_icon_hover.png")
+            self.fullscreen_overlay.shuffle_button.change_icon("resources\\icons\\shuffle_true_icon_normal.png",
+                                                               "resources\\icons\\shuffle_true_icon_hover.png")
         else:
             self.shuffle = False
             self.status_bar.shuffle_button.change_icon("resources\\icons\\shuffle_icon_normal.png",
                                                        "resources\\icons\\shuffle_icon_hover.png")
+            self.fullscreen_overlay.shuffle_button.change_icon("resources\\icons\\shuffle_icon_normal.png",
+                                                               "resources\\icons\\shuffle_icon_hover.png")
 
     def set_repeat(self):
         if not self.repeat:
             self.repeat = True
             self.status_bar.repeat_button.change_icon("resources\\icons\\repeat_once_icon_normal.png",
                                                       "resources\\icons\\repeat_once_icon_hover.png")
+            self.fullscreen_overlay.repeat_button.change_icon("resources\\icons\\repeat_once_icon_normal.png",
+                                                              "resources\\icons\\repeat_once_icon_hover.png")
         else:
             self.repeat = False
             self.status_bar.repeat_button.change_icon("resources\\icons\\repeat_icon_normal.png",
                                                       "resources\\icons\\repeat_icon_hover.png")
+            self.fullscreen_overlay.repeat_button.change_icon("resources\\icons\\repeat_icon_normal.png",
+                                                              "resources\\icons\\repeat_icon_hover.png")
 
     def end_of_media(self):
         if self.current_widget == self.main_content_widget.playlist_table1:
@@ -413,26 +536,46 @@ class MainWindow(MainFormUI):
         if self.state == QMediaPlayer.PlaybackState.PlayingState:
             self.status_bar.play_button.change_icon("resources\\icons\\pause_track_icon.png",
                                                     "resources\\icons\\pause_track_icon.png")
+            self.fullscreen_overlay.play_button.change_icon("resources\\icons\\pause_track_icon.png",
+                                                            "resources\\icons\\pause_track_icon.png")
             if self.current_widget == self.main_content_widget.playlist_table1:
                 self.main_content_widget.play_playlist_button.change_icon(
                     "resources\\icons\\pause_track_icon.png",
                     "resources\\icons\\pause_track_icon.png")
+                if self.current_widget.selected_row >= 0 and self.current_widget.selected_row == self.current_widget.cur_track:
+                    self.main_content_widget.playlist_table1.cur_button1.change_icon(
+                        "resources\\icons\\pause_icon_normal.png",
+                        "resources\\icons\\pause_icon_hover.png")
             elif self.current_widget == self.favourite_content_widget.playlist_table2:
                 self.favourite_content_widget.play_playlist_button.change_icon(
                     "resources\\icons\\pause_track_icon.png",
                     "resources\\icons\\pause_track_icon.png")
+                if self.current_widget.selected_row >= 0 and self.current_widget.selected_row == self.current_widget.cur_track:
+                    self.favourite_content_widget.playlist_table2.cur_button1.change_icon(
+                        "resources\\icons\\pause_icon_normal.png",
+                        "resources\\icons\\pause_icon_hover.png")
 
         elif self.state == QMediaPlayer.PlaybackState.PausedState:
             self.status_bar.play_button.change_icon("resources\\icons\\play_track_icon_normal.png",
                                                     "resources\\icons\\play_track_icon_normal.png")
+            self.fullscreen_overlay.play_button.change_icon("resources\\icons\\play_track_icon_normal.png",
+                                                            "resources\\icons\\play_track_icon_normal.png")
             if self.current_widget == self.main_content_widget.playlist_table1:
                 self.main_content_widget.play_playlist_button.change_icon(
                     "resources\\icons\\play_track_icon_normal.png",
                     "resources\\icons\\play_track_icon_normal.png")
+                if self.current_widget.selected_row >= 0 and self.current_widget.selected_row == self.current_widget.cur_track:
+                    self.main_content_widget.playlist_table1.cur_button1.change_icon(
+                        "resources\\icons\\play_icon_normal.png",
+                        "resources\\icons\\play_icon_hover.png")
             elif self.current_widget == self.favourite_content_widget.playlist_table2:
                 self.favourite_content_widget.play_playlist_button.change_icon(
                     "resources\\icons\\play_track_icon_normal.png",
                     "resources\\icons\\play_track_icon_normal.png")
+                if self.current_widget.selected_row >= 0 and self.current_widget.selected_row == self.current_widget.cur_track:
+                    self.favourite_content_widget.playlist_table2.cur_button1.change_icon(
+                        "resources\\icons\\play_icon_normal.png",
+                        "resources\\icons\\play_icon_hover.png")
 
     def check_state(self):
         # проверка состояния плеера
@@ -446,8 +589,12 @@ class MainWindow(MainFormUI):
         # если нажали играть с кнопки
         if self.state == QMediaPlayer.PlaybackState.PlayingState:
             self.pause()
+            if self.fullscreen_overlay.isVisible():
+                self.pause_visualizer()
         elif self.state == QMediaPlayer.PlaybackState.PausedState:
             self.resume()
+            if self.fullscreen_overlay.isVisible():
+                self.start_visualizer()
 
     def select_from_table(self, id, widget):
         # если нажали играть с таблицы
@@ -484,8 +631,10 @@ class MainWindow(MainFormUI):
         print(id)
         track_info = client.get_tracks(id)[0]
         print("проверка", track_info)
-
-        client.download_file(track_info[4])
+        has_track = client.check_track_file(track_info[4])
+        print("есть трек:", has_track)
+        if not has_track:
+            client.download_file(track_info[4])
         self.media_player.setSource(QUrl.fromLocalFile(f"resources\\{track_info[4]}"))
         self.current_track_id = id
         seconds = round(track_info[5])
@@ -493,6 +642,9 @@ class MainWindow(MainFormUI):
         self.media_player.play()
         self.status_bar.display(track_info[1], track_info[7], track_info[11], duration,
                                 self.current_track_id, self.session_id)
+        self.display_track()
+        if self.fullscreen_overlay.isVisible():
+            self.start_visualizer()
 
     def resume(self):
         self.media_player.play()
@@ -506,14 +658,25 @@ class MainWindow(MainFormUI):
             self.status_bar.status_widget.track_slider.setMaximum(self.media_player.duration())
             self.status_bar.status_widget.track_slider.setValue(self.media_player.position())
 
-    def slider_moved(self):
-        self.media_player.setPosition(self.status_bar.status_widget.track_slider.value())
+            self.fullscreen_overlay.track_slider.setMinimum(0)
+            self.fullscreen_overlay.track_slider.setMaximum(self.media_player.duration())
+            self.fullscreen_overlay.track_slider.setValue(self.media_player.position())
+
+    def slider_moved(self, slider):
+        value = slider.value()
+        print(value)
+        self.media_player.setPosition(value)
+        if slider == self.fullscreen_overlay.track_slider:
+            self.status_bar.status_widget.track_slider.setValue(value)
+        else:
+            self.fullscreen_overlay.track_slider.setValue(value)
         self.update_time()
 
     def update_time(self):
         position = self.media_player.position()
         current_time = str(f'{int(position / 60000)}:{int((position / 1000) % 60):02}')
         self.status_bar.status_widget.current_label.setText(current_time)
+        self.fullscreen_overlay.current_label.setText(current_time)
 
     def switch_frames(self, widget=None):
         # замена окон главное, избранное, поиск, профиль
@@ -536,7 +699,7 @@ class MainWindow(MainFormUI):
     def closeEvent(self, event):
         self.media_player.stop()
         self.media_player.setSource(QUrl())
-        clear_directory("resources\\upload\\tracks")
+        # clear_directory("resources\\upload\\tracks")
         clear_directory("resources\\temp")
         event.accept()
 
@@ -546,7 +709,6 @@ class LoginWindow(LoginFormUI):
         super(LoginWindow, self).__init__()
         # подключаем модель для взаимодействия с бд
         self.enter_button.clicked.connect(self.enter)
-        client.send_album_images()
 
     def enter(self):
         login = self.login_input.text()
@@ -602,7 +764,7 @@ class LoginWindow(LoginFormUI):
         return user if user is not None else False
 
     def closeEvent(self, event):
-        clear_directory("resources\\upload\\tracks")
+        # clear_directory("resources\\upload\\tracks")
         clear_directory("resources\\temp")
         event.accept()
 

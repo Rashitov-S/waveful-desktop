@@ -1,12 +1,15 @@
+import random
 import sys
+import time
 
-from PyQt6.QtCore import Qt, QEvent, QSize, pyqtSignal
-from PyQt6.QtGui import QIcon, QPixmap, QColor, QBrush, QFont
+from PyQt6.QtCore import Qt, QEvent, QSize, pyqtSignal, QPropertyAnimation, QTimer, QRect, QEasingCurve
+from PyQt6.QtGui import QIcon, QPixmap, QColor, QBrush, QFont, QPainter
 from PyQt6.QtMultimedia import QMediaPlayer
 from PyQt6.QtWidgets import QWidget, QApplication, QLineEdit, QPushButton, QMainWindow, QSizePolicy, QVBoxLayout, \
     QScrollArea, QFrame, QStackedWidget, QDialog, QComboBox, QFileDialog, QTableWidget, QTableWidgetItem, QHeaderView, \
-    QAbstractItemView, QAbstractScrollArea, QStatusBar, QHBoxLayout, QLabel, QSpacerItem, QMenu, QToolButton
-from PyQt6 import uic
+    QAbstractItemView, QAbstractScrollArea, QStatusBar, QHBoxLayout, QLabel, QSpacerItem, QMenu, QToolButton, \
+    QGraphicsOpacityEffect, QGraphicsScene, QGraphicsRectItem, QGraphicsView, QStackedLayout, QGraphicsDropShadowEffect
+from PyQt6 import uic, QtCore
 import io
 import client
 
@@ -16,9 +19,10 @@ template_main_content_widget = open("resources/UI/main_content_widgetUI.ui", mod
 template_favourite_content_widget = open("resources/UI/favourite_content_widget.ui", mode="r", encoding="utf-8").read()
 template_search_content_widget = open("resources/UI/search_content_widgetUI.ui", mode="r", encoding="utf-8").read()
 template_profile_content_widget = open("resources/UI/profile_content_widgetUI.ui", mode="r", encoding="utf-8").read()
-template_add_track_dialog = open("resources/UI/add_track_dialogUI.ui", mode="r", encoding="utf-8").read()
+template_add_track_dialog = open("resources/UI/add_track_dialog2.ui", mode="r", encoding="utf-8").read()
 template_status_bar = open("resources/UI/status_barUI.ui", mode="r", encoding="utf-8").read()
 template_about_widget = open("resources/UI/about_widgetUI.ui", mode="r", encoding="utf-8").read()
+template_fullscreen_widget = open("resources/UI/fullscreen_widgetUI.ui", mode="r", encoding="utf-8").read()
 
 
 class MenuListButton(QPushButton):
@@ -73,10 +77,13 @@ class InterfaceButton(QPushButton):
         self.setIcon(self.normal_image)
 
     def change_icon(self, normal_image, hover_image):
-        self.normal_image = QIcon(normal_image)
-        self.hover_image = QIcon(hover_image)
-        self.setIconSize(QSize(self.icon_size, self.icon_size))
-        self.setIcon(self.normal_image)
+        try:
+            self.normal_image = QIcon(normal_image)
+            self.hover_image = QIcon(hover_image)
+            self.setIconSize(QSize(self.icon_size, self.icon_size))
+            self.setIcon(self.normal_image)
+        except RuntimeError as e:
+            print("Ошибка:", e.args)
 
     def enterEvent(self, event):
         self.setIconSize(QSize(self.icon_size + 2, self.icon_size + 2))
@@ -110,8 +117,16 @@ class PlaylistTable(QTableWidget):
         # кнопка играющего трека select
         self.cur_button1 = None
         self.cellClicked.connect(self.select_row)
+        self.verticalScrollBar().valueChanged.connect(self.on_scroll)
         self.set_widget()
+        self.start = 0
         self.setup_table()
+
+    def on_scroll(self):
+        current_value = self.verticalScrollBar().value()
+        max_value = self.verticalScrollBar().maximum()
+        if current_value == max_value:
+            self.add_next_tracks()
 
     def set_widget(self, widget=0):
         self.widget = widget
@@ -183,20 +198,21 @@ class PlaylistTable(QTableWidget):
             button.clicked.connect(lambda x: self.play_track(item.row(), button, self.widget))
             if self.cur_track == row:
                 self.cur_button1 = button
-                if (self.playing == QMediaPlayer.PlaybackState.PausedState or
-                        self.playing == QMediaPlayer.PlaybackState.StoppedState or self.playing == QMediaPlayer.PlaybackState.PlayingState):
+                if (self.playing == QMediaPlayer.PlaybackState.StoppedState or
+                        self.playing == QMediaPlayer.PlaybackState.PlayingState):
                     self.cur_button1.change_icon("resources\\icons\\pause_icon_normal.png",
                                                  "resources\\icons\\pause_icon_hover.png")
             self.setCellWidget(self.selected_row, 0, button)
 
     def update_table(self):
-        client.send_album_images()
         self.tracks_id = []
         self.setRowCount(0)
-        tracks = client.get_tracks_all()
+        tracks = client.get_tracks_all(self.start)
         self.tracks = tracks
-        print(self.tracks)
         num = 1
+        images = [[x[11]] for x in tracks]
+        print(len(images))
+        client.send_album_images(images)
         for track in tracks:
             self.tracks_id.append(track[0])
             seconds = round(track[5])
@@ -208,6 +224,13 @@ class PlaylistTable(QTableWidget):
         fnt = self.font()
         fnt.setPointSize(11)
         self.setFont(fnt)
+
+    def add_next_tracks(self):
+        next = client.get_next_tracks(self.start)
+        if next:
+            self.tracks = self.tracks + next
+            self.start += 30
+            self.update_table()
 
     def add_track(self, num, title, artist, album, duration, path):
         row_position = self.rowCount()
@@ -323,14 +346,17 @@ class FavouritePlaylistTable(PlaylistTable):
     def __init__(self, user_id, parent=None):
         super().__init__(user_id, parent)
         self.set_widget(widget=1)
+        self.start = 0
 
     def update_table(self):
-        client.send_album_images()
         self.tracks_id = []
         self.setRowCount(0)
         favourite_tracks = client.get_favorite_tracks(self.user_id)
         self.tracks = favourite_tracks
         num = 1
+        print(favourite_tracks)
+        images = [[x[11]] for x in favourite_tracks]
+        client.send_album_images(images)
         for track in favourite_tracks:
             self.tracks_id.append(track[0])
             seconds = round(track[5])
@@ -351,7 +377,7 @@ class SearchPlaylistTable(PlaylistTable):
         self.update_table()
 
     def update_table(self, title=None):
-        client.send_album_images()
+        # client.send_album_images()
         if title:
             self.tracks_id = []
             self.setRowCount(0)
@@ -474,6 +500,7 @@ class MainFormUI(QMainWindow):
         # настраиваем статус-бар
         self.status_bar = PlayStatusBar()
         self.setStatusBar(self.status_bar)
+        self.status_bar.status_widget.image_label.mousePressEvent = self.show_large_image
         # настраиваем виджет поиска
         self.widget.setStyleSheet("background-color: #101010")
         self.search_input.setStyleSheet("""
@@ -524,6 +551,350 @@ class MainFormUI(QMainWindow):
         self.action1.triggered.connect(lambda: self.option_selected(0))
         self.menu_button.setMenu(self.menu)
 
+        self.overlay = QWidget(self)
+        self.overlay.setGeometry(self.rect())
+        self.overlay.setStyleSheet("background-color: rgba(0, 0, 0, 0.5);")
+        self.overlay.mousePressEvent = lambda event: self.close_overlay(self.overlay)
+        self.large_image_label = QLabel(self.overlay)
+
+        self.large_image_label.setMinimumSize(100, 100)
+        self.large_image_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.original_pixmap = QPixmap(self.status_bar.current_album)
+
+        self.opacity_effect = QGraphicsOpacityEffect(self.overlay)
+        self.overlay.setGraphicsEffect(self.opacity_effect)
+
+        self.overlay_animation_in = QPropertyAnimation(self.opacity_effect, b"opacity")
+        self.overlay_animation_in.setDuration(500)
+        self.overlay_animation_in.setStartValue(0.0)
+        self.overlay_animation_in.setEndValue(1.0)
+
+        self.overlay_animation_out = QPropertyAnimation(self.opacity_effect, b"opacity")
+        self.overlay_animation_out.setDuration(300)
+        self.overlay_animation_out.setStartValue(1.0)
+        self.overlay_animation_out.setEndValue(0.0)
+
+        self.large_image_label.hide()
+        self.overlay.hide()
+
+        self.fullscreen_overlay = QWidget(self)
+        f = io.StringIO(template_fullscreen_widget)
+        uic.loadUi(f, self.fullscreen_overlay)
+        self.fullscreen_overlay.setGeometry(self.rect())
+        # self.fullscreen_overlay.album_image.setPixmap(QPixmap(self.status_bar.current_album))
+
+        title_font = QFont()
+        title_font.setBold(True)
+        title_font.setPointSize(16)
+        self.fullscreen_overlay.title_label.setFont(title_font)
+
+        artist_font = QFont()
+        artist_font.setBold(True)
+        artist_font.setPointSize(12)
+        self.fullscreen_overlay.artist_label.setFont(artist_font)
+
+        self.fullscreen_overlay.close_button = InterfaceButton("resources/icons/close_fullscreen_icon_normal.png",
+                                                               "resources/icons/close_fullscreen_icon_hover.png",
+                                                               self.fullscreen_overlay.close_button,
+                                                               icon_size=40)
+        self.fullscreen_overlay.shuffle_button = InterfaceButton("resources/icons/shuffle_icon_normal.png",
+                                                                 "resources/icons/shuffle_icon_hover.png",
+                                                                 self.fullscreen_overlay.shuffle_button, icon_size=24)
+        self.fullscreen_overlay.next_button = InterfaceButton("resources/icons/next_icon_normal.png",
+                                                              "resources/icons/next_icon_hover.png",
+                                                              self.fullscreen_overlay.next_button, icon_size=24)
+        self.fullscreen_overlay.repeat_button = InterfaceButton("resources/icons/repeat_icon_normal.png",
+                                                                "resources/icons/repeat_icon_hover.png",
+                                                                self.fullscreen_overlay.repeat_button, icon_size=24)
+        self.fullscreen_overlay.previous_button = InterfaceButton("resources/icons/previous_icon_normal.png",
+                                                                  "resources/icons/previous_icon_hover.png",
+                                                                  self.fullscreen_overlay.previous_button,
+                                                                  icon_size=24)
+        self.fullscreen_overlay.play_button = InterfaceButton("resources/icons/play_track_icon_normal.png",
+                                                              "resources/icons/play_track_icon_normal.png",
+                                                              self.fullscreen_overlay.play_button,
+                                                              icon_size=40)
+
+        self.fullscreen_overlay.close_button.clicked.connect(
+            lambda _: self.close_fullscreen_overlay(self.fullscreen_overlay))
+        self.background_color = (0, 0, 0)
+        # self.shadow_effect = QGraphicsDropShadowEffect()
+        # self.shadow_effect.setBlurRadius(50)
+        # self.shadow_effect.setXOffset(0)
+        # self.shadow_effect.setYOffset(0)
+        # self.shadow_effect.setColor(QColor(0, 0, 0, 160))
+        self.fullscreen_overlay.setStyleSheet(
+            f"background-color: rgb{self.background_color};")
+
+        self.animated_bars = [self.fullscreen_overlay.frame, self.fullscreen_overlay.frame_2,
+                              self.fullscreen_overlay.frame_3, self.fullscreen_overlay.frame_4,
+                              self.fullscreen_overlay.frame_5, self.fullscreen_overlay.frame_6,
+                              self.fullscreen_overlay.frame_7, self.fullscreen_overlay.frame_8]
+
+        self.animations = []
+
+        for bar in self.animated_bars:
+            bar.setMaximumSize(25, round(self.size().height() * 0.5))
+
+        self.opacity_effect2 = QGraphicsOpacityEffect()
+        self.opacity_effect2.setOpacity(1.0)
+        self.fullscreen_overlay.setGraphicsEffect(self.opacity_effect2)
+
+        self.fullscreen_overlay_animation_in = QPropertyAnimation(self.opacity_effect2, b"opacity")
+        self.fullscreen_overlay_animation_in.setDuration(500)
+        self.fullscreen_overlay_animation_in.setStartValue(0.0)
+        self.fullscreen_overlay_animation_in.setEndValue(1.0)
+
+        self.fullscreen_overlay_animation_out = QPropertyAnimation(self.opacity_effect2, b"opacity")
+        self.fullscreen_overlay_animation_out.setDuration(300)
+        self.fullscreen_overlay_animation_out.setStartValue(1.0)
+        self.fullscreen_overlay_animation_out.setEndValue(0.0)
+
+        self.bar_animation1_in = QPropertyAnimation(self.fullscreen_overlay.frame, b"maximumSize")
+        self.bar_animation1_in.setDuration(400)
+        self.bar_animation1_in.setStartValue(QSize(25, round(self.size().height() * 0.3)))
+        self.bar_animation1_in.setEndValue(QSize(25, round(self.size().height() * 0.5)))
+        self.bar_animation1_in.setEasingCurve(QtCore.QEasingCurve.Type.InBounce)
+        self.animations.append(self.bar_animation1_in)
+
+        self.bar_animation1_out = QPropertyAnimation(self.fullscreen_overlay.frame, b"maximumSize")
+        self.bar_animation1_out.setDuration(400)
+        self.bar_animation1_out.setStartValue(QSize(25, round(self.size().height() * 0.5)))
+        self.bar_animation1_out.setEndValue(QSize(25, round(self.size().height() * 0.3)))
+        self.bar_animation1_out.setEasingCurve(QtCore.QEasingCurve.Type.InBounce)
+        self.animations.append(self.bar_animation1_out)
+
+        self.bar_animation2_in = QPropertyAnimation(self.fullscreen_overlay.frame_2, b"maximumSize")
+        self.bar_animation2_in.setDuration(400)
+        self.bar_animation2_in.setStartValue(QSize(25, round(self.size().height() * 0.4)))
+        self.bar_animation2_in.setEndValue(QSize(25, round(self.size().height() * 0.1)))
+        self.bar_animation2_in.setEasingCurve(QtCore.QEasingCurve.Type.InBounce)
+        self.animations.append(self.bar_animation2_in)
+
+        self.bar_animation2_out = QPropertyAnimation(self.fullscreen_overlay.frame_2, b"maximumSize")
+        self.bar_animation2_out.setDuration(400)
+        self.bar_animation2_out.setStartValue(QSize(25, round(self.size().height() * 0.1)))
+        self.bar_animation2_out.setEndValue(QSize(25, round(self.size().height() * 0.4)))
+        self.bar_animation2_out.setEasingCurve(QtCore.QEasingCurve.Type.InBounce)
+        self.animations.append(self.bar_animation2_out)
+
+        self.bar_animation3_in = QPropertyAnimation(self.fullscreen_overlay.frame_3, b"maximumSize")
+        self.bar_animation3_in.setDuration(350)
+        self.bar_animation3_in.setStartValue(QSize(25, round(self.size().height() * 0.2)))
+        self.bar_animation3_in.setEndValue(QSize(25, round(self.size().height() * 0.4)))
+        self.bar_animation3_in.setEasingCurve(QtCore.QEasingCurve.Type.InBounce)
+        self.animations.append(self.bar_animation3_in)
+
+        self.bar_animation3_out = QPropertyAnimation(self.fullscreen_overlay.frame_3, b"maximumSize")
+        self.bar_animation3_out.setDuration(350)
+        self.bar_animation3_out.setStartValue(QSize(25, round(self.size().height() * 0.4)))
+        self.bar_animation3_out.setEndValue(QSize(25, round(self.size().height() * 0.2)))
+        self.bar_animation3_out.setEasingCurve(QtCore.QEasingCurve.Type.InBounce)
+        self.animations.append(self.bar_animation3_out)
+
+        self.bar_animation4_in = QPropertyAnimation(self.fullscreen_overlay.frame_4, b"maximumSize")
+        self.bar_animation4_in.setDuration(350)
+        self.bar_animation4_in.setStartValue(QSize(25, round(self.size().height() * 0.5)))
+        self.bar_animation4_in.setEndValue(QSize(25, round(self.size().height() * 0.2)))
+        self.bar_animation4_in.setEasingCurve(QtCore.QEasingCurve.Type.InBounce)
+        self.animations.append(self.bar_animation4_in)
+
+        self.bar_animation4_out = QPropertyAnimation(self.fullscreen_overlay.frame_4, b"maximumSize")
+        self.bar_animation4_out.setDuration(350)
+        self.bar_animation4_out.setStartValue(QSize(25, round(self.size().height() * 0.2)))
+        self.bar_animation4_out.setEndValue(QSize(25, round(self.size().height() * 0.5)))
+        self.bar_animation4_out.setEasingCurve(QtCore.QEasingCurve.Type.InBounce)
+        self.animations.append(self.bar_animation4_out)
+
+        self.bar_animation5_in = QPropertyAnimation(self.fullscreen_overlay.frame_5, b"maximumSize")
+        self.bar_animation5_in.setDuration(350)
+        self.bar_animation5_in.setStartValue(QSize(25, round(self.size().height() * 0.2)))
+        self.bar_animation5_in.setEndValue(QSize(25, round(self.size().height() * 0.4)))
+        self.bar_animation5_in.setEasingCurve(QtCore.QEasingCurve.Type.InBounce)
+        self.animations.append(self.bar_animation5_in)
+
+        self.bar_animation5_out = QPropertyAnimation(self.fullscreen_overlay.frame_5, b"maximumSize")
+        self.bar_animation5_out.setDuration(350)
+        self.bar_animation5_out.setStartValue(QSize(25, round(self.size().height() * 0.4)))
+        self.bar_animation5_out.setEndValue(QSize(25, round(self.size().height() * 0.2)))
+        self.bar_animation5_out.setEasingCurve(QtCore.QEasingCurve.Type.InBounce)
+        self.animations.append(self.bar_animation5_out)
+
+        self.bar_animation6_in = QPropertyAnimation(self.fullscreen_overlay.frame_6, b"maximumSize")
+        self.bar_animation6_in.setDuration(400)
+        self.bar_animation6_in.setStartValue(QSize(25, round(self.size().height() * 0.3)))
+        self.bar_animation6_in.setEndValue(QSize(25, round(self.size().height() * 0.5)))
+        self.bar_animation6_in.setEasingCurve(QtCore.QEasingCurve.Type.InBounce)
+        self.animations.append(self.bar_animation6_in)
+
+        self.bar_animation6_out = QPropertyAnimation(self.fullscreen_overlay.frame_6, b"maximumSize")
+        self.bar_animation6_out.setDuration(400)
+        self.bar_animation6_out.setStartValue(QSize(25, round(self.size().height() * 0.5)))
+        self.bar_animation6_out.setEndValue(QSize(25, round(self.size().height() * 0.3)))
+        self.bar_animation6_out.setEasingCurve(QtCore.QEasingCurve.Type.InBounce)
+        self.animations.append(self.bar_animation6_out)
+
+        self.bar_animation7_in = QPropertyAnimation(self.fullscreen_overlay.frame_7, b"maximumSize")
+        self.bar_animation7_in.setDuration(350)
+        self.bar_animation7_in.setStartValue(QSize(25, round(self.size().height() * 0.2)))
+        self.bar_animation7_in.setEndValue(QSize(25, round(self.size().height() * 0.4)))
+        self.bar_animation7_in.setEasingCurve(QtCore.QEasingCurve.Type.InBounce)
+        self.animations.append(self.bar_animation7_in)
+
+        self.bar_animation7_out = QPropertyAnimation(self.fullscreen_overlay.frame_7, b"maximumSize")
+        self.bar_animation7_out.setDuration(350)
+        self.bar_animation7_out.setStartValue(QSize(25, round(self.size().height() * 0.4)))
+        self.bar_animation7_out.setEndValue(QSize(25, round(self.size().height() * 0.2)))
+        self.bar_animation7_out.setEasingCurve(QtCore.QEasingCurve.Type.InBounce)
+        self.animations.append(self.bar_animation7_out)
+
+        self.bar_animation8_in = QPropertyAnimation(self.fullscreen_overlay.frame_8, b"maximumSize")
+        self.bar_animation8_in.setDuration(400)
+        self.bar_animation8_in.setStartValue(QSize(25, round(self.size().height() * 0.1)))
+        self.bar_animation8_in.setEndValue(QSize(25, round(self.size().height() * 0.3)))
+        self.bar_animation8_in.setEasingCurve(QtCore.QEasingCurve.Type.InBounce)
+        self.animations.append(self.bar_animation8_in)
+
+        self.bar_animation8_out = QPropertyAnimation(self.fullscreen_overlay.frame_8, b"maximumSize")
+        self.bar_animation8_out.setDuration(400)
+        self.bar_animation8_out.setStartValue(QSize(25, round(self.size().height() * 0.3)))
+        self.bar_animation8_out.setEndValue(QSize(25, round(self.size().height() * 0.1)))
+        self.bar_animation8_out.setEasingCurve(QtCore.QEasingCurve.Type.InBounce)
+        self.animations.append(self.bar_animation8_out)
+
+
+        for index, anim in enumerate(self.animations):
+            anim.finished.connect(lambda ind=index: self.on_animation_finished(ind))
+
+        self.fullscreen_overlay.hide()
+
+    def start_color_animation(self, prev_color):
+        self.color_animation = QPropertyAnimation(self, b"color")
+        self.color_animation.setDuration(1000)
+        self.color_animation.setStartValue(QColor(round(prev_color[0]), round(prev_color[1]), round(prev_color[2])))
+        self.color_animation.setEndValue(QColor(round(self.background_color[0]), round(self.background_color[1]), round(self.background_color[2])))
+        self.color_animation.setEasingCurve(QtCore.QEasingCurve.Type.InQuad)
+        self.color_animation.valueChanged.connect(self.update_color)
+        self.color_animation.start()
+
+    def update_color(self, color):
+        self.fullscreen_overlay.setStyleSheet(f"background-color: rgb({color.red()}, {color.green()}, {color.blue()});")
+
+    def init_animation(self, animation, bar):
+        animation.setDuration(300)
+        animation.setStartValue(QSize(25, bar.height()))
+        animation.setEndValue(QSize(25, 0))
+        return animation
+
+    def pause_visualizer(self):
+        self.hide_animations = [self.init_animation(QPropertyAnimation(bar, b"maximumSize"), bar) for bar in
+                                self.animated_bars]
+        for anim in self.hide_animations:
+            anim.start()
+
+    def on_animation_finished(self, index):
+        print(index)
+        if index % 2 == 0:
+            pair_animation = self.animations[index + 1]
+        else:
+            pair_animation = self.animations[index - 1]
+        pair_animation.start()
+
+    def resizeEvent(self, event):
+        print(f"Размер окна изменен: {self.size()}")
+        self.change_overlay_size()
+        self.change_fullscreen_overlay_size()
+        super().resizeEvent(event)  # Вызов родительского метод
+
+    def display_track(self):
+        self.original_pixmap = QPixmap(self.status_bar.current_album)
+        previous_color = self.background_color
+        self.background_color = client.find_average_color(self.status_bar.current_album)
+        self.start_color_animation(previous_color)
+        size = self.size()
+        self.fullscreen_overlay.resize(size)
+        width = round(size.width() * 0.65)
+        height = round(size.height() * 0.65)
+        pixmap = self.original_pixmap.scaled(width, height,
+                                             Qt.AspectRatioMode.KeepAspectRatio,
+                                             Qt.TransformationMode.SmoothTransformation)
+        self.fullscreen_overlay.album_image.setPixmap(pixmap)
+        self.fullscreen_overlay.title_label.setText(self.status_bar.status_widget.track_label.text())
+        self.fullscreen_overlay.artist_label.setText(self.status_bar.status_widget.artist_label.text())
+        self.fullscreen_overlay.current_label.setText(self.status_bar.status_widget.current_label.text())
+        self.fullscreen_overlay.duration_label.setText(self.status_bar.status_widget.duration_label.text())
+
+    def show_large_image(self, event):
+        self.original_pixmap = QPixmap(self.status_bar.current_album)
+        size = self.size()
+        pixmap = self.original_pixmap.scaled(round(size.width() * 0.75), round(size.height() * 0.75),
+                                             Qt.AspectRatioMode.KeepAspectRatio,
+                                             Qt.TransformationMode.SmoothTransformation)
+        self.large_image_label.setPixmap(pixmap)
+        self.large_image_label.setGeometry(self.rect())
+        self.large_image_label.show()
+        self.overlay.show()
+
+        self.overlay_animation_in.start()
+
+    def start_visualizer(self):
+        self.bar_animation1_in.start()
+        self.bar_animation2_in.start()
+        self.bar_animation3_in.start()
+        self.bar_animation4_in.start()
+        self.bar_animation5_in.start()
+        self.bar_animation6_in.start()
+        self.bar_animation7_in.start()
+        self.bar_animation8_in.start()
+
+    def show_fullscreen_overlay(self, playing=True):
+        self.original_pixmap = QPixmap(self.status_bar.current_album)
+        print(self.original_pixmap)
+        self.display_track()
+        self.fullscreen_overlay.show()
+        self.fullscreen_overlay_animation_in.start()
+        if playing:
+            self.start_visualizer()
+
+    def close_fullscreen_overlay(self, overlay):
+        timer = QTimer(self)
+        timer.setSingleShot(True)
+        self.fullscreen_overlay_animation_out.start()
+        timer.start(300)
+        timer.timeout.connect(overlay.hide)
+        for animation in self.animations:
+            animation.stop()
+
+    def close_overlay(self, overlay):
+        timer = QTimer(self)
+        timer.setSingleShot(True)
+        self.overlay_animation_out.start()
+        timer.start(300)
+        timer.timeout.connect(overlay.hide)
+
+    def change_fullscreen_overlay_size(self):
+        size = self.size()
+        self.fullscreen_overlay.resize(size)
+        width = round(size.width() * 0.65)
+        height = round(size.height() * 0.65)
+        pixmap = self.original_pixmap.scaled(width, height,
+                                             Qt.AspectRatioMode.KeepAspectRatio,
+                                             Qt.TransformationMode.SmoothTransformation)
+        self.fullscreen_overlay.album_image.setMaximumSize(pixmap.size())
+        self.fullscreen_overlay.track_slider.setFixedWidth(round(pixmap.width() * 0.75))
+        print(pixmap.width())
+        self.fullscreen_overlay.album_image.setPixmap(pixmap)
+
+    def change_overlay_size(self):
+        size = self.size()
+        self.overlay.resize(size)
+        self.large_image_label.resize(size)
+        pixmap = self.original_pixmap.scaled(round(size.width() * 0.75), round(size.height() * 0.75),
+                                             Qt.AspectRatioMode.KeepAspectRatio,
+                                             Qt.TransformationMode.SmoothTransformation)
+        self.large_image_label.setPixmap(pixmap)
+        print(self.size())
+
     def option_selected(self, index):
         if index == 0:
             self.about_widget.show()
@@ -531,7 +902,7 @@ class MainFormUI(QMainWindow):
 
 class StatusBarWidget(QWidget):
     def __init__(self, parent=None):
-        super().__init__()
+        super().__init__(parent)
         f = io.StringIO(template_status_bar)
         uic.loadUi(f, self)
         font = QFont()
@@ -586,6 +957,7 @@ class PlayStatusBar(QStatusBar):
     def __init__(self):
         super().__init__()
         self.setMinimumSize(960, 80)
+        self.current_album = "resources/waveful_logo.ico"
         self.status_widget = StatusBarWidget(self)
         self.addWidget(self.status_widget)
         self.setSizeGripEnabled(False)
@@ -614,11 +986,14 @@ class PlayStatusBar(QStatusBar):
                                            "resources\\icons\\volume_medium_icon_hover.png",
                                            self.status_widget.mute_button,
                                            icon_size=24)
+        self.maximize_button = InterfaceButton("resources\\icons\\maximize_icon_normal.png",
+                                               "resources\\icons\\maximize_icon_hover.png",
+                                               self.status_widget.maximize_button, icon_size=24)
 
     # метод для отображения всей информации о текущем треке
     def display(self, title, artist, album_path, duration, track_id, session):
         self.status_widget.show()
-        print("внутри display", album_path)
+        self.current_album = f"resources/{album_path}"
         icon = QIcon("resources/" + album_path)
         pixmap = icon.pixmap(64, 64)
         self.status_widget.track_label.setText(title)
