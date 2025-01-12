@@ -302,9 +302,11 @@ class AddTrackDialog(AddTrackDialogUI):
 
 
 class MainWindow(MainFormUI):
-    def __init__(self, session_id):
+    def __init__(self, session_id, username, passw):
         self.session_id = session_id
-        super(MainWindow, self).__init__(self.session_id)
+        self.username = username
+        self.passw = passw
+        super(MainWindow, self).__init__(self.session_id, self.username, self.passw)
         # проверка обновлений
         if check_version():
             self.init_update()
@@ -711,23 +713,19 @@ class LoginWindow(LoginFormUI):
         self.enter_button.clicked.connect(self.enter)
 
     def enter(self):
-        login = self.login_input.text()
-        password = self.password_input.text()
+        login = self.login_input.text().strip()
+        password = self.password_input.text().strip()
         try:
             # если ничего не введено - вызываем ошибку
             if not login or not password:
                 raise UserException
-            user = self.is_user_exist(login)
-            if user:
-                if user[2] == password:
-                    self.set_message_label("Успешный вход", "Green")
-                    self.session = MainWindow(user[0])
-                    self.hide()
-                    self.session.show()
-                else:
-                    # неверный пароль
-                    self.highlight_fields()
-                    self.set_message_label("Неверный логин или пароль", "Red")
+            response = client.get_user(login, password)
+            if response:
+                self.set_message_label("Успешный вход", "Green")
+                self.session = MainWindow(response['id'], login, password)
+                print(response['id'])
+                self.hide()
+                self.session.show()
             else:
                 # неверный логин
                 self.highlight_fields()
@@ -740,28 +738,21 @@ class LoginWindow(LoginFormUI):
         self.register()
 
     def register(self):
-        login = self.login_input.text() if self.login_input.text() != "" else False
-        password = self.password_input.text() if self.password_input.text() else False
+        login = self.login_input.text().strip() if self.login_input.text() != "" else False
+        password = self.password_input.text().strip() if self.password_input.text() else False
         try:
             # если ничего не введено - вызываем ошибку
             if not login or not password:
                 raise UserException
-            user = self.is_user_exist(login)
-            # если такого пользователя нет - можем регистрировать
-            if not user:
-                client.add_user(login, password)
+            response = client.add_user(login, password)
+            if response:
                 self.set_message_label("Пользователь зарегистрирован", "Green")
             else:
                 self.highlight_fields()
                 self.set_message_label("Пользователь с таким именем уже существует!", "Red")
         except UserException:
             self.highlight_fields()
-            self.set_message_label("Ошибка вводаAA", "Red")
-
-    def is_user_exist(self, login):
-        # проверка на наличие пользователя в бд
-        user = client.get_user(login)
-        return user if user is not None else False
+            self.set_message_label("Ошибка ввода", "Red")
 
     def closeEvent(self, event):
         # clear_directory("resources\\upload\\tracks")

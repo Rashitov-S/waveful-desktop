@@ -457,15 +457,17 @@ class SearchContentWidgetUI(QWidget):
 
 
 class MainFormUI(QMainWindow):
-    def __init__(self, user_id=None):
+    def __init__(self, user_id=None, username=None, passw=None):
         super().__init__()
         f = io.StringIO(template_main_form)
         uic.loadUi(f, self)
         self.user_id = user_id
+        self.username = username
+        self.passw = passw
         self.main_content_widget = MainContentWidgetUI(self.user_id)
         self.favourite_content_widget = FavouriteContentWidgetUI(self.user_id)
         self.search_content_widget = SearchContentWidgetUI(self.user_id)
-        self.profile_content_widget = ProfileContentWidgetUI(self.user_id)
+        self.profile_content_widget = ProfileContentWidgetUI(self.user_id, self.username, self.passw)
         self.setWindowIcon(QIcon("resources\\icons\\waveful_logo.png"))
         self.about_widget = AboutWidgetUI()
         self.initUI()
@@ -1060,7 +1062,7 @@ class MainContentWidgetUI(QWidget):
 
 
 class ProfileContentWidgetUI(QWidget):
-    def __init__(self, user_id):
+    def __init__(self, user_id, username, passw):
         super().__init__()
         f = io.StringIO(template_profile_content_widget)
         uic.loadUi(f, self)
@@ -1075,6 +1077,8 @@ class ProfileContentWidgetUI(QWidget):
         self.exit_button.setStyleSheet("background-color: red")
         self.line.setStyleSheet("background-color: rgba(255, 255, 10);")
         self.user_id = user_id
+        self.username = username
+        self.passw = passw
         self.show_pass = True
         self.new_password_input.hide()
         self.confirm_button.hide()
@@ -1094,9 +1098,10 @@ class ProfileContentWidgetUI(QWidget):
         self.profile_image.setPixmap(pixmap)
 
     def change_user_password(self):
-        new_password = self.new_password_input.text()
+        new_password = self.new_password_input.text().strip()
         if new_password:
             client.change_user_password(self.user_id, new_password)
+            self.passw = new_password
         self.set_login_password()
         self.show_pass = True
 
@@ -1112,7 +1117,7 @@ class ProfileContentWidgetUI(QWidget):
         if self.show_pass == True:
             self.see_password.change_icon("resources\\icons\\eye_disable_icon_normal.png",
                                           "resources\\icons\\eye_disable_icon_hover.png")
-            self.password.setText(self.user[1])
+            self.password.setText(self.user[2])
             self.show_pass = False
         else:
             self.see_password.change_icon("resources\\icons\\eye_enable_icon_normal.png",
@@ -1121,8 +1126,8 @@ class ProfileContentWidgetUI(QWidget):
             self.show_pass = True
 
     def set_login_password(self):
-        self.user = client.get_user_by_id(self.user_id)
-        self.login.setText(self.user[0])
+        self.user = [self.user_id, self.username, self.passw]
+        self.login.setText(self.user[1])
         self.password.setText("**********")
 
 

@@ -8,7 +8,7 @@ import requests_cache
 from colorthief import ColorThief
 
 requests_cache.install_cache('http_cache', expire_after=18000)
-BASE_URL = 'http://127.0.0.1:5002'
+BASE_URL = 'https://waveful.ru'
 
 
 def find_average_color(image_path: str):
@@ -167,12 +167,18 @@ def get_track_length(file_path):
 def add_user(login, password):
     response = requests.post(f'{BASE_URL}/users', json={'login': login, 'password': password})
     print(response.json())
+    if response.status_code == 201:
+        return True
+    else:
+        return False
 
 
-def get_user(login):
-    response = requests.get(f'{BASE_URL}/users/{login}', params={'nocache': time.time()})
-    print(response.json())
-    return response.json()
+def get_user(login, password):
+    response = requests.post(f'{BASE_URL}/login', json={'login': login, 'password': password, 'nocache': time.time()})
+    if response.status_code == 200:
+        return response.json()
+    else:
+        return False
 
 
 def get_user_by_id(user_id):
@@ -204,7 +210,7 @@ def get_album_id(title):
 
 
 def get_album_all(album_id):
-    response = requests.get(f'{BASE_URL}/albums/{album_id}')
+    response = requests.get(f'{BASE_URL}/albums/{album_id}', params={'nocache': time.time()})
     return response.json()
 
 
