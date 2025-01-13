@@ -41,7 +41,7 @@
       <enum>QTabWidget::Rounded</enum>
      </property>
      <property name="currentIndex">
-      <number>2</number>
+      <number>3</number>
      </property>
      <property name="documentMode">
       <bool>false</bool>
@@ -493,10 +493,13 @@
        <item row="1" column="0" colspan="2">
         <widget class="QLabel" name="label_14">
          <property name="text">
-          <string>Трек будет добавлен после прохождения модерации</string>
+          <string>&lt;p&gt;Добавляя трек на платформу, вы соглашаетесь с&lt;/p&gt;&lt;a href=&quot;https://waveful.ru/terms-of-use&quot;&gt; Условиями пользования &lt;/a&gt;</string>
          </property>
          <property name="alignment">
           <set>Qt::AlignCenter</set>
+         </property>
+         <property name="openExternalLinks">
+          <bool>true</bool>
          </property>
         </widget>
        </item>

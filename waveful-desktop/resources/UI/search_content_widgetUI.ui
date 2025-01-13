@@ -58,6 +58,9 @@
          <pointsize>48</pointsize>
         </font>
        </property>
+       <property name="styleSheet">
+        <string notr="true">color: #ffffff;</string>
+       </property>
        <property name="text">
         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; font-size:48pt; font-weight:600;&quot;&gt;Поиск&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
        </property>

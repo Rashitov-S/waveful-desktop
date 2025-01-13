@@ -30,7 +30,7 @@ def find_average_color(image_path: str):
     #     if result[i] > 170 and sum(result) > 510:
     #         result[i] -= 50
     return (result[0] * 0.75 if result[0] > 50 else result[0] / 0.5, result[1] * 0.75 if result[1] > 50
-            else result[1] / 0.5, result[2] * 0.75 if result[2] > 50 else result[2] / 0.5)
+    else result[1] / 0.5, result[2] * 0.75 if result[2] > 50 else result[2] / 0.5)
 
 
 def extract_metadata(file_path):
@@ -86,6 +86,9 @@ def take_album_from_meta(audio_file, image_temp="resources\\temp\\temp"):
 def upload_file(file_path):
     with open(file_path, 'rb') as file:
         response = requests.post(f'{BASE_URL}/upload', files={'file': file})
+        print("жду результат")
+        print(response.status_code)
+        print(response.text)
         result = response.json()
         if response.status_code == 200:
             print("Файл успешно загружен")
@@ -230,6 +233,7 @@ def get_artists(name=None, artist_id=None):
         params['name'] = name
     if artist_id:
         params['artist_id'] = artist_id
+    params['nocache'] = time.time()
     response = requests.get(f'{BASE_URL}/artists', params=params)
     print(response.json())
     return response.json()

@@ -172,6 +172,7 @@ class AddTrackDialog(AddTrackDialogUI):
 
     def copy_music_file(self):
         if self.music_file:
+            print(self.music_file)
             res = client.upload_file(self.music_file)
             if res:
                 return res

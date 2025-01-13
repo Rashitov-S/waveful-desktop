@@ -146,6 +146,7 @@ class PlaylistTable(QTableWidget):
         self.setRowCount(0)
         self.setStyleSheet("""
                     QTableWidget {
+                        color: #ffffff;
                         background-color: transparent;
                         gridline-color: transparent;
                     }
@@ -165,7 +166,7 @@ class PlaylistTable(QTableWidget):
                     }
                     QTableWidget::item:selected {
                         background-color: gray;
-                        color: white;
+                        color: #ffffff;
                         border-radius: 5px;
                     }
                 """)
@@ -410,8 +411,8 @@ class FavouriteContentWidgetUI(QWidget):
         super().__init__()
         f = io.StringIO(template_favourite_content_widget)
         uic.loadUi(f, self)
-        self.widget.setStyleSheet("background-color: transparent")
-        self.line.setStyleSheet("background-color: rgba(255, 255, 10);")
+        self.widget.setStyleSheet("background-color: transparent; color: #ffffff;")
+        self.line.setStyleSheet("background-color: rgba(255, 255, 10); color: #ffffff;")
         self.user_id = user_id
         self.initUI()
 
@@ -426,7 +427,7 @@ class FavouriteContentWidgetUI(QWidget):
         self.playlist_table2.setMinimumHeight(10)
         self.verticalLayout.addWidget(self.playlist_table2)
         self.like_image.setStyleSheet("background-color: transparent")
-        self.label.setStyleSheet("background-color: transparent")
+        self.label.setStyleSheet("background-color: transparent; color: #ffffff;")
         pixmap = QPixmap("resources\\icons\\star_favourite_icon.png")
         pixmap = pixmap.scaled(80, 80, aspectRatioMode=Qt.AspectRatioMode.KeepAspectRatio)
         self.like_image.setPixmap(pixmap)
@@ -437,9 +438,9 @@ class SearchContentWidgetUI(QWidget):
         super().__init__()
         f = io.StringIO(template_search_content_widget)
         uic.loadUi(f, self)
-        self.info_label.setStyleSheet("background-color: transparent")
+        self.info_label.setStyleSheet("background-color: transparent; color: #ffffff;")
         self.search_image.setStyleSheet("background-color: transparent")
-        self.label_3.setStyleSheet("background-color: transparent")
+        self.label_3.setStyleSheet("background-color: transparent; color: #ffffff;")
         self.line.setStyleSheet("background-color: rgba(255, 255, 10);")
         self.user_id = user_id
         self.initUI()
@@ -1066,16 +1067,16 @@ class ProfileContentWidgetUI(QWidget):
         super().__init__()
         f = io.StringIO(template_profile_content_widget)
         uic.loadUi(f, self)
-        self.label_2.setStyleSheet("background-color: transparent")
-        self.label.setStyleSheet("background-color: transparent")
-        self.login.setStyleSheet("background-color: transparent")
-        self.password.setStyleSheet("background-color: transparent")
-        self.label_4.setStyleSheet("background-color: transparent")
-        self.change_password.setStyleSheet("background-color: transparent")
-        self.new_password_input.setStyleSheet("background-color: transparent")
-        self.confirm_button.setStyleSheet("background-color: #26c9a8")
-        self.exit_button.setStyleSheet("background-color: red")
-        self.line.setStyleSheet("background-color: rgba(255, 255, 10);")
+        self.label_2.setStyleSheet("background-color: transparent; color: #ffffff;")
+        self.label.setStyleSheet("background-color: transparent; color: #ffffff;")
+        self.login.setStyleSheet("background-color: transparent; color: #ffffff;")
+        self.password.setStyleSheet("background-color: transparent; color: #ffffff;")
+        self.label_4.setStyleSheet("background-color: transparent; color: #ffffff;")
+        self.change_password.setStyleSheet("background-color: transparent; color: #ffffff;")
+        self.new_password_input.setStyleSheet("background-color: transparent; color: #ffffff;")
+        self.confirm_button.setStyleSheet("background-color: #26c9a8; color: #ffffff;")
+        self.exit_button.setStyleSheet("background-color: red; color: #ffffff;")
+        self.line.setStyleSheet("background-color: rgba(255, 255, 10); color: #ffffff;")
         self.user_id = user_id
         self.username = username
         self.passw = passw

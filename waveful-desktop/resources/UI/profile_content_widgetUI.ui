@@ -36,6 +36,9 @@
          <pointsize>12</pointsize>
         </font>
        </property>
+       <property name="styleSheet">
+        <string notr="true">color: #ffffff;</string>
+       </property>
        <property name="text">
         <string>Нажмите для смены пароля</string>
        </property>
@@ -54,6 +57,9 @@
          <pointsize>10</pointsize>
         </font>
        </property>
+       <property name="styleSheet">
+        <string notr="true"/>
+       </property>
        <property name="placeholderText">
         <string>Новый пароль</string>
        </property>
@@ -71,6 +77,9 @@
         <font>
          <pointsize>12</pointsize>
         </font>
+       </property>
+       <property name="styleSheet">
+        <string notr="true">color: #ffffff;</string>
        </property>
        <property name="text">
         <string>Подтвердить</string>
@@ -110,6 +119,9 @@
         <font>
          <pointsize>48</pointsize>
         </font>
+       </property>
+       <property name="styleSheet">
+        <string notr="true">color: #ffffff;</string>
        </property>
        <property name="text">
         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; font-weight:600;&quot;&gt;Профиль&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
@@ -156,6 +168,9 @@
          <pointsize>16</pointsize>
         </font>
        </property>
+       <property name="styleSheet">
+        <string notr="true">color: #ffffff;</string>
+       </property>
        <property name="text">
         <string>Пароль:</string>
        </property>
@@ -173,6 +188,9 @@
         <font>
          <pointsize>16</pointsize>
         </font>
+       </property>
+       <property name="styleSheet">
+        <string notr="true">color: #ffffff;</string>
        </property>
        <property name="text">
         <string>TextLabel</string>
@@ -214,6 +232,9 @@
          <pointsize>16</pointsize>
         </font>
        </property>
+       <property name="styleSheet">
+        <string notr="true">color: #ffffff;</string>
+       </property>
        <property name="text">
         <string>TextLabel</string>
        </property>
@@ -231,6 +252,9 @@
         <font>
          <pointsize>16</pointsize>
         </font>
+       </property>
+       <property name="styleSheet">
+        <string notr="true">color: #ffffff;</string>
        </property>
        <property name="text">
         <string>Текущий аккаунт: </string>
