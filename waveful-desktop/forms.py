@@ -13,7 +13,8 @@ from PyQt6 import uic, QtCore
 import io
 import client
 
-template_login_form = open("resources/UI/login_formUI.ui", mode="r", encoding="utf-8").read()
+
+template_login_form = open("resources/UI/login_formUI2.ui", mode="r", encoding="utf-8").read()
 template_main_form = open("resources/UI/main_formUI.ui", mode="r", encoding="utf-8").read()
 template_main_content_widget = open("resources/UI/main_content_widgetUI.ui", mode="r", encoding="utf-8").read()
 template_favourite_content_widget = open("resources/UI/favourite_content_widget.ui", mode="r", encoding="utf-8").read()
@@ -765,7 +766,6 @@ class MainFormUI(QMainWindow):
         self.bar_animation8_out.setEasingCurve(QtCore.QEasingCurve.Type.InBounce)
         self.animations.append(self.bar_animation8_out)
 
-
         for index, anim in enumerate(self.animations):
             anim.finished.connect(lambda ind=index: self.on_animation_finished(ind))
 
@@ -775,7 +775,8 @@ class MainFormUI(QMainWindow):
         self.color_animation = QPropertyAnimation(self, b"color")
         self.color_animation.setDuration(1000)
         self.color_animation.setStartValue(QColor(round(prev_color[0]), round(prev_color[1]), round(prev_color[2])))
-        self.color_animation.setEndValue(QColor(round(self.background_color[0]), round(self.background_color[1]), round(self.background_color[2])))
+        self.color_animation.setEndValue(
+            QColor(round(self.background_color[0]), round(self.background_color[1]), round(self.background_color[2])))
         self.color_animation.setEasingCurve(QtCore.QEasingCurve.Type.InQuad)
         self.color_animation.valueChanged.connect(self.update_color)
         self.color_animation.start()
@@ -796,7 +797,6 @@ class MainFormUI(QMainWindow):
             anim.start()
 
     def on_animation_finished(self, index):
-        print(index)
         if index % 2 == 0:
             pair_animation = self.animations[index + 1]
         else:
@@ -852,7 +852,6 @@ class MainFormUI(QMainWindow):
 
     def show_fullscreen_overlay(self, playing=True):
         self.original_pixmap = QPixmap(self.status_bar.current_album)
-        print(self.original_pixmap)
         self.display_track()
         self.fullscreen_overlay.show()
         self.fullscreen_overlay_animation_in.start()
@@ -885,7 +884,6 @@ class MainFormUI(QMainWindow):
                                              Qt.TransformationMode.SmoothTransformation)
         self.fullscreen_overlay.album_image.setMaximumSize(pixmap.size())
         self.fullscreen_overlay.track_slider.setFixedWidth(round(pixmap.width() * 0.75))
-        print(pixmap.width())
         self.fullscreen_overlay.album_image.setPixmap(pixmap)
 
     def change_overlay_size(self):
@@ -896,7 +894,6 @@ class MainFormUI(QMainWindow):
                                              Qt.AspectRatioMode.KeepAspectRatio,
                                              Qt.TransformationMode.SmoothTransformation)
         self.large_image_label.setPixmap(pixmap)
-        print(self.size())
 
     def option_selected(self, index):
         if index == 0:
@@ -1103,6 +1100,8 @@ class ProfileContentWidgetUI(QWidget):
         if new_password:
             client.change_user_password(self.user_id, new_password)
             self.passw = new_password
+            client.change_password_autologin(new_password)
+
         self.set_login_password()
         self.show_pass = True
 
@@ -1154,10 +1153,15 @@ class LoginFormUI(QWidget):
     def initUI(self):
         # надпись для ошибок и удачной регистрации
         self.message_label.hide()
+        self.message_label_reg.hide()
+        self.tabWidget.currentChanged.connect(self.clear_all)
         # надписи к полям
         self.login_input.setPlaceholderText("Login")
         self.password_input.setPlaceholderText("Password")
         self.password_input.setEchoMode(QLineEdit.EchoMode.Password)
+        self.login_input_reg.setPlaceholderText("Login")
+        self.password_input_reg.setPlaceholderText("Password")
+        self.password_input_reg.setEchoMode(QLineEdit.EchoMode.Password)
         # текст-гиперссылка для регистрации
         self.register_hypertext.setStyleSheet("color: RoyalBlue; text-decoration: underline;")
         self.register_hypertext.setCursor(Qt.CursorShape.PointingHandCursor)
@@ -1175,25 +1179,99 @@ class LoginFormUI(QWidget):
         self.message_label.setStyleSheet(f"color: {color};")
         self.message_label.show()
 
+    def set_message_label_reg(self, text, color):
+        self.message_label_reg.setText(text)
+        self.message_label_reg.setStyleSheet(f"color: {color};")
+        self.message_label_reg.show()
+
     def eventFilter(self, source, event):
         if event.type() == QEvent.Type.FocusIn:
-            if source in (self.login_input, self.password_input):
+            if source in (self.login_input, self.password_input, self.login_input_reg, self.password_input_reg):
                 self.clear_error_fields()
         return super().eventFilter(source, event)
 
     def clear_error_fields(self):
         # очищение полей при новом вводе
         if self.message_label.text() == "Неверный логин или пароль" or self.message_label.text() == "Ошибка ввода":
-            self.login_input.setStyleSheet("")
-            self.password_input.setStyleSheet("")
+            self.login_input.setStyleSheet("""QLineEdit {
+                border: 2px solid #9b9b9b;
+                border-radius: 10px; /* Закругление углов */
+                padding: 10px; /* Отступы внутри */
+                font-size: 16px; /* Размер шрифта */
+            }
+            QLineEdit:focus {
+                border: 2px solid #9932cc; /* Цвет рамки при фокусе */
+            }""")
+            self.password_input.setStyleSheet("""QLineEdit {
+                border: 2px solid #9b9b9b;
+                border-radius: 10px; /* Закругление углов */
+                padding: 10px; /* Отступы внутри */
+                font-size: 16px; /* Размер шрифта */
+            }
+            QLineEdit:focus {
+                border: 2px solid #9932cc; /* Цвет рамки при фокусе */
+            }""")
             self.login_input.setText("")
             self.password_input.setText("")
             self.message_label.setText("")
+        if self.message_label_reg.text() == "Пользователь с таким именем уже существует!" or self.message_label_reg.text() == "Ошибка ввода" or self.message_label_reg.text() == "Необходимо принять условия пользования":
+            self.login_input_reg.setStyleSheet("""QLineEdit {
+                            border: 2px solid #9b9b9b;
+                            border-radius: 10px; /* Закругление углов */
+                            padding: 10px; /* Отступы внутри */
+                            font-size: 16px; /* Размер шрифта */
+                        }
+                        QLineEdit:focus {
+                            border: 2px solid #9932cc; /* Цвет рамки при фокусе */
+                        }""")
+            self.password_input_reg.setStyleSheet("""QLineEdit {
+                            border: 2px solid #9b9b9b;
+                            border-radius: 10px; /* Закругление углов */
+                            padding: 10px; /* Отступы внутри */
+                            font-size: 16px; /* Размер шрифта */
+                        }
+                        QLineEdit:focus {
+                            border: 2px solid #9932cc; /* Цвет рамки при фокусе */
+                        }""")
+            self.login_input_reg.setText("")
+            self.password_input_reg.setText("")
+            self.message_label_reg.setText("")
+
+    def clear_all(self):
+        self.login_input.setText("")
+        self.password_input.setText("")
+        self.login_input_reg.setText("")
+        self.password_input_reg.setText("")
+        self.clear_error_fields()
 
     def highlight_fields(self):
         # подсветка полей с ошибкой
-        self.login_input.setStyleSheet("border: 1px solid red;")
-        self.password_input.setStyleSheet("border: 1px solid red;")
+        self.login_input.setStyleSheet("""QLineEdit {
+                border: 2px solid red;
+                border-radius: 10px; /* Закругление углов */
+                padding: 10px; /* Отступы внутри */
+                font-size: 16px; /* Размер шрифта */
+            }""")
+        self.password_input.setStyleSheet("""QLineEdit {
+                border: 2px solid red;
+                border-radius: 10px; /* Закругление углов */
+                padding: 10px; /* Отступы внутри */
+                font-size: 16px; /* Размер шрифта */
+            }""")
+
+    def highlight_fields_reg(self):
+        self.login_input_reg.setStyleSheet("""QLineEdit {
+                        border: 2px solid red;
+                        border-radius: 10px; /* Закругление углов */
+                        padding: 10px; /* Отступы внутри */
+                        font-size: 16px; /* Размер шрифта */
+                    }""")
+        self.password_input_reg.setStyleSheet("""QLineEdit {
+                        border: 2px solid red;
+                        border-radius: 10px; /* Закругление углов */
+                        padding: 10px; /* Отступы внутри */
+                        font-size: 16px; /* Размер шрифта */
+                    }""")
 
 
 if __name__ == '__main__':

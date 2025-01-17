@@ -1,3 +1,4 @@
+import json
 import os
 import time
 from mutagen import File
@@ -9,6 +10,35 @@ from colorthief import ColorThief
 
 requests_cache.install_cache('http_cache', expire_after=18000)
 BASE_URL = 'https://waveful.ru'
+SETTINGS_FILE = "data/settings.json"
+AUTOLOGIN_FILE = "data/user_data/autologin.json"
+AUTOLOGIN_DIR = "data/user_data"
+
+def set_autologin(autologin, login, password):
+    if not os.path.exists(AUTOLOGIN_FILE):
+        os.makedirs(AUTOLOGIN_DIR, exist_ok=True)
+    print(autologin)
+    settings = {'autologin': 1 if autologin else 0, 'login': login if autologin else None,
+                'password': password if autologin else None}
+    with open(AUTOLOGIN_FILE, 'w') as f:
+        json.dump(settings, f)
+
+
+def change_password_autologin(password):
+    if not os.path.exists(AUTOLOGIN_FILE):
+        os.makedirs(AUTOLOGIN_DIR, exist_ok=True)
+    try:
+        with open(AUTOLOGIN_FILE, mode="r", encoding="utf-8") as f:
+            settings = json.load(f)
+            autologin_option = settings.get("autologin", False)
+            login = settings.get('login', False)
+            if not autologin_option:
+                raise Exception
+        settings2 = {'autologin': autologin_option, 'login': login, 'password': password}
+        with open(AUTOLOGIN_FILE, 'w') as f:
+            json.dump(settings2, f)
+    except Exception:
+        pass
 
 
 def find_average_color(image_path: str):
@@ -267,7 +297,7 @@ def get_tracks(track_id=None, title=None):
         params['track_id'] = track_id
     if title:
         params['title'] = title
-    response = requests.get(f'{BASE_URL}/tracks', params={**params, 'nocache': time.time()})
+    response = requests.get(f'{BASE_URL}/tracks', params=params)
     print(response.json())
     return response.json()
 

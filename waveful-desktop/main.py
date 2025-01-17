@@ -1,4 +1,5 @@
 import itertools
+import json
 import os
 import shutil
 import sqlite3
@@ -9,15 +10,16 @@ from random import randrange
 
 from PyQt6.QtCore import QUrl, pyqtSignal, QTimer, Qt
 from PyQt6.QtGui import QPixmap
-from PyQt6.QtMultimedia import QMediaPlayer, QAudioOutput
-from PyQt6.QtWidgets import QWidget, QApplication, QMainWindow, QDialog, QFileDialog, QLineEdit, QComboBox
-from PyQt6.uic.properties import QtCore
+from PyQt6.QtMultimedia import QMediaPlayer, QAudioOutput, QMediaDevices
+from PyQt6.QtWidgets import QWidget, QApplication, QMainWindow, QDialog, QFileDialog, QLineEdit, QComboBox, \
+    QErrorMessage, QTabWidget
 
 from forms import LoginFormUI, MainFormUI, AddTrackDialogUI, MainContentWidgetUI, FavouriteContentWidgetUI
 import client
 import subprocess
 from __version__ import __version__
 
+SETTINGS_FILE = "data/settings.json"
 
 class UserException(Exception):
     pass
@@ -105,6 +107,7 @@ class AddTrackDialog(AddTrackDialogUI):
                                                              "Audio Files (*.mp3 *.wav *.ogg *aac)")
             self.select_file_field.setText(self.music_file)
             self.metadata = client.extract_metadata(self.music_file)
+            self.title_input.setText(f"{self.metadata.get("title", None)}")
             self.album_image = client.take_album_from_meta(self.music_file)
             self.check_tabs(1)
         except Exception:
@@ -155,20 +158,26 @@ class AddTrackDialog(AddTrackDialogUI):
                     self.tabs.setTabVisible(3, False)
 
     def accept_dialog(self):
-        title = self.title_input.text()
-        artist = self.artist_combobox.currentText() if self.art_combo else self.artist_input.text()
-        album = self.album_combobox.currentText() if self.alb_combo else self.album_input.text()
+        title = self.title_input.text().strip()
+        artist = self.artist_combobox.currentText() if self.art_combo else self.artist_input.text().strip()
+        album = self.album_combobox.currentText() if self.alb_combo else self.album_input.text().strip()
         file = self.copy_music_file()
-        if not self.art_combo:
-            self.add_artist()
-        artist_id = self.artists[artist] if self.art_combo else client.get_artists(name=artist)[0][0]
-        if not self.alb_combo:
-            album_path = self.copy_album_image()
-            self.add_album(album, artist_id, album_path)
-        album_id = self.albums[album] if self.alb_combo else client.get_album_id(album)[0]
-        print(title, artist_id, album_id, file)
-        client.add_track(title, artist_id, album_id, file)
-        self.accept()
+        if file:
+            if not self.art_combo:
+                if artist not in self.artists.keys():
+                    self.add_artist()
+            artist_id = self.artists[artist] if self.art_combo else client.get_artists(name=artist)[0][0]
+            if not self.alb_combo:
+                if album not in self.albums.keys():
+                    album_path = self.copy_album_image()
+                    self.add_album(album, artist_id, album_path)
+            album_id = self.albums[album] if self.alb_combo else client.get_album_id(album)[0]
+            print(title, artist_id, album_id, file)
+            client.add_track(title, artist_id, album_id, file)
+            self.accept()
+        else:
+            error_dialog = QErrorMessage()
+            error_dialog.showMessage('Ошибка при загрузке файла! Попробуйте загрузить другой файл.')
 
     def copy_music_file(self):
         if self.music_file:
@@ -258,6 +267,7 @@ class AddTrackDialog(AddTrackDialogUI):
         if self.no_artist.isChecked():
             self.artist_combobox.clear()
             self.artist_input.show()
+            self.artist_input.setText(f"{self.metadata.get("artist", None)}")
             self.search_artist_input.hide()
             self.artist_combobox.hide()
 
@@ -304,6 +314,8 @@ class AddTrackDialog(AddTrackDialogUI):
 
 class MainWindow(MainFormUI):
     def __init__(self, session_id, username, passw):
+        self.duration = 0
+        self.streamed = False
         self.session_id = session_id
         self.username = username
         self.passw = passw
@@ -324,10 +336,12 @@ class MainWindow(MainFormUI):
         # аудиоплеер
         self.current_track_id = -1
         self.volume = 0.5
+        self.load_settings()
         self.status_bar.status_widget.volume_slider.setValue(int(self.volume * 100))
         self.media_player = QMediaPlayer()
         self.audio_output = QAudioOutput()
         self.media_player.setAudioOutput(self.audio_output)
+
         # открытие фулл-экранного режима
         self.status_bar.maximize_button.clicked.connect(self.check_fullscreen_overlay)
         # текущее состояние плеера
@@ -345,10 +359,10 @@ class MainWindow(MainFormUI):
         self.search_content_widget.playlist_table3.play_signal_table.connect(self.select_from_table)
 
         self.media_player.playbackStateChanged.connect(self.check_state)
-        self.status_bar.status_widget.track_slider.actionTriggered.connect(
-            lambda _: self.slider_moved(self.status_bar.status_widget.track_slider))
-        self.fullscreen_overlay.track_slider.actionTriggered.connect(
-            lambda _: self.slider_moved(self.fullscreen_overlay.track_slider))
+        self.status_bar.status_widget.track_slider.sliderReleased.connect(
+            lambda: self.slider_moved(self.status_bar.status_widget.track_slider))
+        self.fullscreen_overlay.track_slider.sliderReleased.connect(
+            lambda: self.slider_moved(self.fullscreen_overlay.track_slider))
         self.status_bar.status_widget.volume_slider.actionTriggered.connect(self.set_volume)
         self.media_player.playbackStateChanged.connect(self.end_of_media)
         # кнопка для громкости
@@ -375,6 +389,18 @@ class MainWindow(MainFormUI):
         self.search_button.clicked.connect(self.search)
         # выход
         self.profile_content_widget.exit_button.clicked.connect(self.exit)
+
+    # def device_changed(self):
+    #     print("сменил")
+    #     self.audio_output.setDevice(QMediaDevices.defaultAudioOutput())
+
+    def load_settings(self):
+        try:
+            with open(SETTINGS_FILE, 'r') as f:
+                settings = json.load(f)
+                self.volume = settings.get('volume', 0.5)
+        except (FileNotFoundError, json.JSONDecodeError):
+            self.volume = 0.5
 
     def check_fullscreen_overlay(self):
         if self.media_player.playbackState() == QMediaPlayer.PlaybackState.PlayingState:
@@ -404,6 +430,7 @@ class MainWindow(MainFormUI):
 
     def exit(self):
         self.close()
+        client.set_autologin(False, None, None)
         self.login_window = LoginWindow()
         self.login_window.show()
 
@@ -529,8 +556,15 @@ class MainWindow(MainFormUI):
             self.audio_output.setVolume(self.volume)
             self.status_bar.status_widget.volume_slider.setValue(int(self.volume * 100))
 
+    def save_settings(self):
+        os.makedirs("data", exist_ok=True)
+        settings = {'volume': self.volume}
+        with open(SETTINGS_FILE, 'w') as f:
+            json.dump(settings, f)
+
     def set_volume(self):
         self.volume = self.status_bar.status_widget.volume_slider.value() / 100
+        self.save_settings()
         self.audio_output.setVolume(self.volume)
         self.status_bar.change_volume_icon(self.volume * 100)
 
@@ -636,12 +670,20 @@ class MainWindow(MainFormUI):
         print("проверка", track_info)
         has_track = client.check_track_file(track_info[4])
         print("есть трек:", has_track)
-        if not has_track:
-            client.download_file(track_info[4])
-        self.media_player.setSource(QUrl.fromLocalFile(f"resources\\{track_info[4]}"))
+        if has_track:
+            self.streamed = False
+            self.media_player.setSource(QUrl.fromLocalFile(f"resources\\{track_info[4]}"))
+            # client.download_file(track_info[4])
+        else:
+            self.streamed = True
+            print("потоковая передача аудио")
+            url = QUrl(f"{client.BASE_URL}/audio/stream/{track_info[4]}")
+            self.media_player.setSource(url)
         self.current_track_id = id
+        self.duration = track_info[5]
         seconds = round(track_info[5])
         duration = f"{seconds // 60}:{seconds % 60:02d}"
+        print(track_info[6])
         self.media_player.play()
         self.status_bar.display(track_info[1], track_info[7], track_info[11], duration,
                                 self.current_track_id, self.session_id)
@@ -656,7 +698,8 @@ class MainWindow(MainFormUI):
         self.media_player.pause()
 
     def update_slider(self):
-        if self.state == QMediaPlayer.PlaybackState.PlayingState:
+        if self.state == QMediaPlayer.PlaybackState.PlayingState and not (
+                self.status_bar.status_widget.track_slider.isSliderDown() or self.fullscreen_overlay.track_slider.isSliderDown()):
             self.status_bar.status_widget.track_slider.setMinimum(0)
             self.status_bar.status_widget.track_slider.setMaximum(self.media_player.duration())
             self.status_bar.status_widget.track_slider.setValue(self.media_player.position())
@@ -669,6 +712,7 @@ class MainWindow(MainFormUI):
         value = slider.value()
         print(value)
         self.media_player.setPosition(value)
+        print("позиция плеера", self.media_player.position())
         if slider == self.fullscreen_overlay.track_slider:
             self.status_bar.status_widget.track_slider.setValue(value)
         else:
@@ -710,8 +754,8 @@ class MainWindow(MainFormUI):
 class LoginWindow(LoginFormUI):
     def __init__(self):
         super(LoginWindow, self).__init__()
-        # подключаем модель для взаимодействия с бд
         self.enter_button.clicked.connect(self.enter)
+        self.register_button.clicked.connect(self.register)
 
     def enter(self):
         login = self.login_input.text().strip()
@@ -724,7 +768,7 @@ class LoginWindow(LoginFormUI):
             if response:
                 self.set_message_label("Успешный вход", "Green")
                 self.session = MainWindow(response['id'], login, password)
-                print(response['id'])
+                client.set_autologin(self.remember_me_checkbox.isChecked(), login, password)
                 self.hide()
                 self.session.show()
             else:
@@ -736,24 +780,28 @@ class LoginWindow(LoginFormUI):
             self.set_message_label("Ошибка ввода", "Red")
 
     def on_label_click(self, event):
-        self.register()
+        self.tabWidget.setCurrentIndex(1)
 
     def register(self):
-        login = self.login_input.text().strip() if self.login_input.text() != "" else False
-        password = self.password_input.text().strip() if self.password_input.text() else False
+        login = self.login_input_reg.text().strip() if self.login_input_reg.text().strip() != "" else False
+        password = self.password_input_reg.text().strip() if self.password_input_reg.text().strip() else False
         try:
             # если ничего не введено - вызываем ошибку
             if not login or not password:
                 raise UserException
-            response = client.add_user(login, password)
-            if response:
-                self.set_message_label("Пользователь зарегистрирован", "Green")
+            if self.agree_checkbox.isChecked():
+                response = client.add_user(login, password)
+                if response:
+                    self.tabWidget.setCurrentIndex(0)
+                    self.set_message_label("Пользователь зарегистрирован", "Green")
+                else:
+                    self.highlight_fields_reg()
+                    self.set_message_label_reg("Пользователь с таким именем уже существует!", "Red")
             else:
-                self.highlight_fields()
-                self.set_message_label("Пользователь с таким именем уже существует!", "Red")
+                self.set_message_label_reg("Необходимо принять условия пользования", "Red")
         except UserException:
-            self.highlight_fields()
-            self.set_message_label("Ошибка ввода", "Red")
+            self.highlight_fields_reg()
+            self.set_message_label_reg("Ошибка ввода", "Red")
 
     def closeEvent(self, event):
         # clear_directory("resources\\upload\\tracks")
@@ -786,7 +834,29 @@ def check_version():
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
-    window = LoginWindow()
-    window.show()
+    sys.excepthook = except_hook
+    if os.path.exists(client.AUTOLOGIN_FILE):
+        try:
+            with open(client.AUTOLOGIN_FILE, mode="r", encoding="utf-8") as f:
+                settings = json.load(f)
+                autologin_option = settings.get("autologin", False)
+                if not autologin_option:
+                    raise UserException
+                login = settings.get('login', False)
+                password = settings.get('password', False)
+                print(login, password)
+                if not login or not password:
+                    raise UserException
+                response = client.get_user(login, password)
+                if not response:
+                    raise UserException
+                session = MainWindow(response['id'], login, password)
+        except Exception:
+            window = LoginWindow()
+            window.show()
+    else:
+        window = LoginWindow()
+        window.show()
+
     sys.excepthook = except_hook
     sys.exit(app.exec())
