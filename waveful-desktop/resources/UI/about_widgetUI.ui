@@ -29,7 +29,7 @@
    </size>
   </property>
   <property name="windowTitle">
-   <string>О waveful</string>
+   <string>О Waveful</string>
   </property>
   <widget class="QLabel" name="label_2">
    <property name="geometry">
@@ -111,6 +111,27 @@
      </widget>
     </item>
    </layout>
+  </widget>
+  <widget class="QLabel" name="label_4">
+   <property name="geometry">
+    <rect>
+     <x>190</x>
+     <y>280</y>
+     <width>321</width>
+     <height>31</height>
+    </rect>
+   </property>
+   <property name="font">
+    <font>
+     <pointsize>10</pointsize>
+    </font>
+   </property>
+   <property name="text">
+    <string>&lt;p&gt;Сайт Waveful: &lt;a href=https://waveful.ru&gt;waveful.ru&lt;/a&gt;&lt;/p&gt;</string>
+   </property>
+   <property name="openExternalLinks">
+    <bool>true</bool>
+   </property>
   </widget>
  </widget>
  <resources/>

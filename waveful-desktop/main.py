@@ -1,10 +1,6 @@
-import itertools
 import json
 import os
-import shutil
-import sqlite3
 import sys
-import time
 from itertools import cycle
 from random import randrange
 
@@ -754,6 +750,7 @@ class MainWindow(MainFormUI):
 class LoginWindow(LoginFormUI):
     def __init__(self):
         super(LoginWindow, self).__init__()
+        self.setWindowTitle("Waveful")
         self.enter_button.clicked.connect(self.enter)
         self.register_button.clicked.connect(self.register)
 
